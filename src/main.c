@@ -61,27 +61,19 @@ int main(const int argc, char **argv)
   printf(HLINE);
   printf("Total allocated datasize: %8.2f MB\n",
       NUMVECTORS * (double)(bytesPerWord * N) * MILLIONTH);
-  printf("Doing %zu repetitions per kernel\n", Iterations);
 
 #ifdef _OPENMP
-  printf(HLINE);
-  _Pragma("omp parallel default(none)")
-  {
-    int numThreads = omp_get_num_threads();
-
-#pragma omp single
-    printf("OpenMP enabled, running with %d threads\n", numThreads);
-
 #ifdef VERBOSE_AFFINITY
+#pragma omp parallel
+  {
     int i = omp_get_thread_num();
-#pragma omp barrier
 #pragma omp critical
     {
       printf("Thread %d running on processor %d\n", i, affinity_getProcessorId());
       affinity_getmask();
     }
-#endif
   }
+#endif
 #else
   Sequential = true;
 #endif
@@ -100,6 +92,8 @@ int main(const int argc, char **argv)
   double *b           = vec.b;
   double *c           = vec.c;
   double *d           = vec.d;
+  printf("OpenMP enabled, running with %zu threads\n", numThreads);
+  printf("Doing %zu repetitions per kernel\n", Iterations);
 
   for (int k = 0; k < Iterations; k++) {
     PROFILE(INIT, init(b, scalar, N));
