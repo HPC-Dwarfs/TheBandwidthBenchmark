@@ -2,8 +2,6 @@
  * All rights reserved. This file is part of TheBandwidthBenchmark.
  * Use of this source code is governed by a MIT style
  * license that can be found in the LICENSE file. */
-#include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -23,25 +21,17 @@
 #include "profiler.h"
 #include "util.h"
 
-static void check(const double * /*a*/,
-    const double * /*b*/,
-    const double * /*c*/,
-    const double * /*d*/,
-    size_t /*N*/,
-    size_t /*ITERS*/);
+typedef struct {
+  double *a;
+  double *b;
+  double *c;
+  double *d;
+} VectorsType;
 
-static void kernelSwitch(double * /*a*/,
-    const double * /*b*/,
-    const double * /*c*/,
-    const double * /*d*/,
-    size_t /*N*/,
-    size_t /*iter*/,
-    int /*j*/);
-
-static void runMemoryHierarchySweeps(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d);
+static void check(VectorsType vec, size_t N, size_t iter);
+static size_t findIter(VectorsType vec, size_t iter, size_t problemSize);
+static void kernelSwitch(VectorsType vec, size_t N, size_t iter, int kernel);
+static void runMemoryHierarchySweeps(VectorsType vec, size_t N);
 
 int main(const int argc, char **argv)
 {
@@ -59,23 +49,18 @@ int main(const int argc, char **argv)
   // Round up N so each thread gets an 8-aligned chunk
   const size_t perThread        = (N + numThreads - 1) / numThreads; // Ceiling division
   const size_t alignedPerThread = (perThread + alignment - 1) & ~(alignment - 1);
-  N                             = alignedPerThread * numThreads;
-  double *a;
-  double *b;
-  double *c;
-  double *d;
+  VectorsType vec;
+  N = alignedPerThread * numThreads;
 
   profilerInit();
-
   parseArguments(argc, argv);
-
   allocateTimer();
 
   printf("\n");
   printf(BANNER);
   printf(HLINE);
   printf("Total allocated datasize: %8.2f MB\n",
-      NUMVECTORS * bytesPerWord * (double)N * MILLIONTH);
+      NUMVECTORS * (double)(bytesPerWord * N) * MILLIONTH);
   printf("Doing %zu repetitions per kernel\n", Iterations);
 
 #ifdef _OPENMP
@@ -101,16 +86,20 @@ int main(const int argc, char **argv)
   Sequential = true;
 #endif
 
-  allocateArrays(&a, &b, &c, &d, N);
-  initArrays(a, b, c, d, N);
-
-  const double scalar = 0.1;
+  allocateArrays(&vec.a, &vec.b, &vec.c, &vec.d, N);
+  initArrays(vec.a, vec.b, vec.c, vec.d, N);
 
 #ifndef _NVCC
   if (BenchmarkType == TP || BenchmarkType == SQ) {
-    runMemoryHierarchySweeps(a, b, c, d);
+    runMemoryHierarchySweeps(vec, N);
   }
 #endif
+
+  const double scalar = INIT_SCALAR;
+  double *a           = vec.a;
+  double *b           = vec.b;
+  double *c           = vec.c;
+  double *d           = vec.d;
 
   for (int k = 0; k < Iterations; k++) {
     PROFILE(INIT, init(b, scalar, N));
@@ -130,21 +119,15 @@ int main(const int argc, char **argv)
   }
 
 #ifndef _NVCC
-  check(a, b, c, d, N, Iterations);
+  check(vec, N, Iterations);
 #endif
   profilerPrint(N);
-
   freeTimer();
 
   return EXIT_SUCCESS;
 }
 
-void check(const double *a,
-    const double *b,
-    const double *c,
-    const double *d,
-    const size_t n,
-    const size_t ITERS)
+void check(const VectorsType vec, const size_t n, const size_t ITERS)
 {
   if (DataInitVariant == RANDOM) {
     return;
@@ -177,6 +160,10 @@ void check(const double *a,
   double bsum = 0.0;
   double csum = 0.0;
   double dsum = 0.0;
+  double *a   = vec.a;
+  double *b   = vec.b;
+  double *c   = vec.c;
+  double *d   = vec.d;
 
   for (size_t i = 0; i < n; i++) {
     asum += a[i];
@@ -220,15 +207,14 @@ void check(const double *a,
   }
 
 #ifndef _NVCC
-void kernelSwitch(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d,
-    const size_t N,
-    const size_t iter,
-    const int kernel)
+void kernelSwitch(
+    const VectorsType vec, const size_t N, const size_t iter, const int kernel)
 {
   double scalar = INIT_SCALAR;
+  double *a     = vec.a;
+  double *b     = vec.b;
+  double *c     = vec.c;
+  double *d     = vec.d;
 
   switch (kernel) {
   case INIT:
@@ -298,10 +284,47 @@ void kernelSwitch(double *restrict a,
   }
 }
 
-static void runMemoryHierarchySweeps(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d)
+size_t findIter(const VectorsType vec, size_t iter, const size_t problemSize)
+{
+  // Target runtime: 0.3 seconds for reliable measurements
+  const double targetTime   = 0.3;
+  const double minTime      = 0.1;
+  const double fallbackTime = 0.005;
+  const double safetyFactor = 0.9;
+  double *a                 = vec.a;
+  double *b                 = vec.b;
+  double *c                 = vec.c;
+  double *d                 = vec.d;
+
+  while (1) {
+    double newtime = striadSeq(a, b, c, d, problemSize, iter);
+    // printf("newtime: %d %e\n", (int)iter, newtime);
+
+    if (newtime >= minTime && newtime <= targetTime) {
+      // Found acceptable iteration count
+      break;
+    }
+
+    if (newtime < minTime) {
+      if (newtime == 0.0) {
+        newtime = fallbackTime;
+      }
+      // Too fast, increase iterations proportionally
+      const double factor = targetTime / newtime;
+      iter                = iter * (size_t)(factor * safetyFactor);
+      if (iter < 2) {
+        iter = 2;
+      }
+    } else {
+      // Too slow, we're done
+      break;
+    }
+  }
+
+  return iter;
+}
+
+static void runMemoryHierarchySweeps(VectorsType vec, const size_t N)
 {
   Iterations = INCACHE_REPS;
   printf("Running memory hierarchy sweeps\n");
@@ -314,39 +337,8 @@ static void runMemoryHierarchySweeps(double *restrict a,
 
     while (problemSize < N) {
 
-      // Target runtime: 0.3 seconds for reliable measurements
-      const double targetTime   = 0.3;
-      const double minTime      = 0.1;
-      const double fallbackTime = 0.005;
-      const double safetyFactor = 0.9;
-      size_t iter               = 2;
-
-      while (1) {
-        double newtime = striadSeq(a, b, c, d, problemSize, iter);
-        // printf("newtime: %d %e\n", (int)iter, newtime);
-
-        if (newtime >= minTime && newtime <= targetTime) {
-          // Found acceptable iteration count
-          break;
-        }
-
-        if (newtime < minTime) {
-          if (newtime == 0.0) {
-            newtime = fallbackTime;
-          }
-          // Too fast, increase iterations proportionally
-          const double factor = targetTime / newtime;
-          iter                = iter * (size_t)(factor * safetyFactor);
-          if (iter < 2) {
-            iter = 2;
-          }
-        } else {
-          // Too slow, we're done
-          break;
-        }
-      }
-
-      kernelSwitch(a, b, c, d, problemSize, iter, kernel);
+      const size_t iter = findIter(vec, 2, problemSize);
+      kernelSwitch(vec, problemSize, iter, kernel);
       profilerPrintLine(problemSize, iter, kernel);
 
       problemSize = problemSize * EXPANSION;
