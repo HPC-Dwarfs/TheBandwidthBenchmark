@@ -23,6 +23,8 @@ ASM       = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.s,$(wildcard $(SRC_DIR)/*.
 OBJ       = $(filter-out $(BUILD_DIR)/kernels-%.o,$(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.c)))
 ifeq ($(strip $(TOOLCHAIN)),NVCC)
 OBJ      += $(patsubst $(SRC_DIR)/%.cu, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cu))
+else ifeq ($(strip $(TOOLCHAIN)),HIP)
+OBJ      += $(patsubst $(SRC_DIR)/%.cu, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cu))
 else
 OBJ      += $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/kernels-*.c))
 endif
