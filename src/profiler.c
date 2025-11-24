@@ -124,21 +124,19 @@ void profilerPrintLine(const size_t N, const size_t iter, const int kernel)
   double avgtime;
   double maxtime;
   double mintime;
-
-  int numThreads = 1;
+  size_t numThreads = 1;
 
 #ifdef _OPENMP
-  if (!Seq) {
-    _Pragma("omp parallel")
-    {
-      numThreads = omp_get_num_threads();
-    }
+  if (!Sequential) {
+    numThreads = omp_get_max_threads();
   }
+#else
 #endif
 
   computeStats(&avgtime, &maxtime, &mintime, kernel);
-  double bytes = (double)Regions[kernel].words * sizeof(double) * (double)N * numThreads;
-  double flops = (double)Regions[kernel].flops * (double)(N * iter) * numThreads;
+  double bytes =
+      (double)Regions[kernel].words * sizeof(double) * (double)(N * numThreads);
+  double flops = (double)Regions[kernel].flops * (double)(N * iter * numThreads);
   //double bytes = (double)Regions[j].words * sizeof(double) * N * numThreads;
   //double flops = (double)Regions[j].flops * N * iter * numThreads;
 
@@ -170,7 +168,9 @@ void profilerPrintLine(const size_t N, const size_t iter, const int kernel)
 
 void profilerPrint(const size_t N)
 {
-  double avgtime, maxtime, mintime;
+  double avgtime;
+  double maxtime;
+  double mintime;
 
 #ifdef VERBOSE_DATASIZE
   size_t bytesPerWord = sizeof(double);

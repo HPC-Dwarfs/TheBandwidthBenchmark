@@ -18,9 +18,8 @@ typedef enum { CONSTANT = 0, RANDOM } InitType;
   "  -m <type>       Benchmark type, can be ws (default), tp, or seq.\n"                 \
   "  -s <long int>   Size in GB for allocated vectors\n"                                 \
   "  -n <long int>   Number of iterations\n"                                             \
-  "  -i <type>       Data initialization type, can be constant, or random"               \
-  "  -d <int>        (If GPU enabled) GPU ID on which you want your program "            \
-  "to run\n"
+  "  -i <type>       Data initialization type, can be constant, or random\n"             \
+  "  -d <int>        (If GPU enabled) GPU ID to execute on\n"
 
 extern int BenchmarkType;
 extern bool Sequential;

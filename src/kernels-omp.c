@@ -44,7 +44,6 @@ void allocateArrays(double **a, double **b, double **c, double **d, const size_t
 
 void initConstants(double *a, double *b, double *c, double *d, const size_t N)
 {
-
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < N; i++) {
     a[i] = INIT_A;
@@ -56,6 +55,7 @@ void initConstants(double *a, double *b, double *c, double *d, const size_t N)
 
 void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
 {
+  printf("Using random initialization.\n");
 
 #pragma omp parallel
   {
@@ -73,7 +73,6 @@ void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
 
 void initArrays(double *a, double *b, double *c, double *d, const size_t N)
 {
-
   if (DataInitVariant == CONSTANT) {
     initConstants(a, b, c, d, N);
   } else if (DataInitVariant == RANDOM) {
