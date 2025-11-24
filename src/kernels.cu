@@ -1,9 +1,17 @@
-#include <cuda_runtime.h>
-#include <curand_kernel.h>
+#ifdef __CUDACC__
+#define KERNEL(name) __global__ void name
+#elif defined(__HIPCC__)
+#define KERNEL(name) __global__ void KERNEL_NAME(name)
+#else
+#error "Neither CUDA nor HIP compiler detected!"
+#endif
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+#include "gpu_common.h"
 
 extern "C" {
 #include "cli.h"
@@ -16,22 +24,7 @@ static int getSharedMemSize(
 static void setBlockSize(void);
 }
 
-#define GPU_ERROR(ans)                                                                   \
-  do {                                                                                   \
-    gpuAssert((ans), __FILE__, __LINE__, true);                                          \
-  } while (0)
-
-static inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort)
-{
-  if (code != cudaSuccess) {
-    fprintf(stderr, "GPUassert: \"%s\" in %s:%d\n", cudaGetErrorString(code), file, line);
-    if (abort) {
-      exit((int)code);
-    }
-  }
-}
-
-__global__ void init_constants(double *__restrict__ a,
+KERNEL(init_constants)(double *__restrict__ a,
     double *__restrict__ b,
     double *__restrict__ c,
     double *__restrict__ d,
@@ -49,14 +42,13 @@ __global__ void init_constants(double *__restrict__ a,
   d[tidx] = INIT_D;
 }
 
-__global__ void init_randoms(double *__restrict__ a,
+KERNEL(init_randoms)(double *__restrict__ a,
     double *__restrict__ b,
     double *__restrict__ c,
     double *__restrict__ d,
     const size_t N,
     unsigned long long seed)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
@@ -64,9 +56,9 @@ __global__ void init_randoms(double *__restrict__ a,
   }
 
   // Declare and initialize RNG state
+  gpuEvent_t start, stop;
   curandState state;
-  curand_init(seed, tidx, 0,
-      &state); // seed, sequence number, offset, &state
+  curand_init(seed, tidx, 0, &state);
 
   a[tidx] = (double)curand_uniform(&state);
   b[tidx] = (double)curand_uniform(&state);
@@ -74,7 +66,7 @@ __global__ void init_randoms(double *__restrict__ a,
   d[tidx] = (double)curand_uniform(&state);
 }
 
-__global__ void initCuda(double *__restrict__ b, int scalar, const size_t N)
+KERNEL(initCuda)(double *__restrict__ b, int scalar, const size_t N)
 {
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -85,7 +77,7 @@ __global__ void initCuda(double *__restrict__ b, int scalar, const size_t N)
   b[tidx] = scalar;
 }
 
-__global__ void copyCuda(double *__restrict__ c, double *__restrict__ a, const size_t N)
+KERNEL(copyCuda)(double *__restrict__ c, double *__restrict__ a, const size_t N)
 {
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -96,7 +88,7 @@ __global__ void copyCuda(double *__restrict__ c, double *__restrict__ a, const s
   c[tidx] = a[tidx];
 }
 
-__global__ void updateCuda(double *__restrict__ a, int scalar, const size_t N)
+KERNEL(updateCuda)(double *__restrict__ a, int scalar, const size_t N)
 {
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -107,7 +99,7 @@ __global__ void updateCuda(double *__restrict__ a, int scalar, const size_t N)
   a[tidx] = a[tidx] * scalar;
 }
 
-__global__ void triadCuda(double *__restrict__ a,
+KERNEL(triadCuda)(double *__restrict__ a,
     double *__restrict__ b,
     double *__restrict__ c,
     const int scalar,
@@ -207,20 +199,20 @@ __global__ void sumCuda(
 
 #define HARNESS(kernel, kernel_name)                                                     \
   int shared_mem_size = SHARED_MEM(kernel_name);                                         \
-  GPU_ERROR(cudaSetDevice(CUDA_DEVICE));                                                 \
-  GPU_ERROR(cudaFree(0));                                                                \
+  GPU_ERROR(gpuSetDevice(CUDA_DEVICE));                                                 \
+  GPU_ERROR(gpuFree(0));                                                                \
   double S = getTimeStamp();                                                             \
   kernel;                                                                                \
-  GPU_ERROR(cudaDeviceSynchronize());                                                    \
+  GPU_ERROR(gpuStreamSynchronize(stream));                                                    \
   double E = getTimeStamp();                                                             \
   return E - S;
 
 extern "C" {
 void allocateArrays(double **a, double **b, double **c, double **d, const size_t N)
 {
-  GPU_ERROR(cudaSetDevice(CUDA_DEVICE));
-  GPU_ERROR(cudaFree(0));
-
+  GPU_ERROR(gpuSetDevice(CUDA_DEVICE));
+  GPU_ERROR(gpuEventCreate(&start));
+  GPU_ERROR(gpuEventCreate(&stop));
   GPU_ERROR(cudaMalloc((void **)a, N * sizeof(double)));
   GPU_ERROR(cudaMalloc((void **)b, N * sizeof(double)));
   GPU_ERROR(cudaMalloc((void **)c, N * sizeof(double)));
@@ -233,8 +225,8 @@ void initArrays(double *__restrict__ a,
     double *__restrict__ d,
     const size_t N)
 {
-  GPU_ERROR(cudaSetDevice(CUDA_DEVICE));
-  GPU_ERROR(cudaFree(0));
+  GPU_ERROR(gpuSetDevice(CUDA_DEVICE));
+  GPU_ERROR(gpuFree(0));
 
   setBlockSize();
 
@@ -249,7 +241,7 @@ void initArrays(double *__restrict__ a,
     init_randoms<<<(N / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);
   }
 
-  GPU_ERROR(cudaDeviceSynchronize());
+  GPU_ERROR(gpuStreamSynchronize(stream));
 }
 
 double init(double *__restrict__ b, double scalar, const size_t N)
@@ -314,8 +306,8 @@ double sdaxpy(double *__restrict__ a,
 
 double sum(double *__restrict__ a, const size_t N)
 {
-  GPU_ERROR(cudaSetDevice(CUDA_DEVICE));
-  GPU_ERROR(cudaFree(0));
+  GPU_ERROR(gpuSetDevice(CUDA_DEVICE));
+  GPU_ERROR(gpuFree(0));
 
   double *al;
 
@@ -328,9 +320,11 @@ double sum(double *__restrict__ a, const size_t N)
       THREAD_BLOCK_SIZE,
       THREAD_BLOCK_SIZE * sizeof(double)>>>(a, al, N);
 
-  GPU_ERROR(cudaDeviceSynchronize());
+  GPU_ERROR(gpuStreamSynchronize(stream));
 
   double end = getTimeStamp();
+
+  GPU_ERROR(gpuEventRecord(start, 0));
 
   GPU_ERROR(cudaFree(al));
 
@@ -339,17 +333,24 @@ double sum(double *__restrict__ a, const size_t N)
 
 void setBlockSize()
 {
-  cudaDeviceProp prop;
-  GPU_ERROR(cudaGetDeviceProperties(&prop, 0));
+  gpuDeviceProp_t deviceProp;
+  GPU_ERROR(gpuGetDeviceProperties(&deviceProp, CUDA_DEVICE));
 
   // int max_THREAD_BLOCK_SIZE                    = prop.maxThreadsPerBlock;
-  int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
+  int maxThreadsPerSM = 0;
+  GPU_ERROR(gpuDeviceGetAttribute(&maxThreadsPerSM, 
+    #ifdef __HIPCC__
+    hipDeviceAttributeMaxThreadsPerMultiProcessor, 
+    #else
+    cudaDevAttrMaxThreadsPerMultiProcessor,
+    #endif
+    CUDA_DEVICE));
 
   // Not the best case for THREAD_BLOCK_SIZE.
   // Varying THREAD_BLOCK_SIZE can result in
   // better performance and thread occupancy.
   if (THREAD_BLOCK_SIZE_SET == 0) {
-    THREAD_BLOCK_SIZE = prop.maxThreadsPerMultiProcessor / 2;
+    THREAD_BLOCK_SIZE = deviceProp.maxThreadsPerMultiProcessor / 2;
   }
 
 #ifdef THREADBLOCKSIZE
