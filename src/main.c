@@ -37,9 +37,6 @@ int main(const int argc, char **argv)
 {
   const size_t bytesPerWord = sizeof(double);
 
-  // Ensure N is aligned: each thread gets a chunk divisible by 8
-  const size_t alignment = 8;
-
 #ifdef _OPENMP
   const size_t numThreads = omp_get_max_threads();
 #else
@@ -47,10 +44,10 @@ int main(const int argc, char **argv)
 #endif
 
   // Round up N so each thread gets an 8-aligned chunk
+  const size_t alignment        = 8;
   const size_t perThread        = (N + numThreads - 1) / numThreads; // Ceiling division
   const size_t alignedPerThread = (perThread + alignment - 1) & ~(alignment - 1);
-  VectorsType vec;
-  N = alignedPerThread * numThreads;
+  N                             = alignedPerThread * numThreads;
 
   profilerInit();
   parseArguments(argc, argv);
@@ -78,6 +75,7 @@ int main(const int argc, char **argv)
   Sequential = true;
 #endif
 
+  VectorsType vec;
   allocateArrays(&vec.a, &vec.b, &vec.c, &vec.d, N);
   initArrays(vec.a, vec.b, vec.c, vec.d, N);
 
@@ -326,7 +324,6 @@ static void runMemoryHierarchySweeps(VectorsType vec, const size_t N)
 
   for (int kernel = 0; kernel < NUMREGIONS; kernel++) {
     size_t problemSize = STARTSIZE;
-
     profilerOpenFile(kernel);
 
     while (problemSize < N) {
@@ -334,7 +331,6 @@ static void runMemoryHierarchySweeps(VectorsType vec, const size_t N)
       const size_t iter = findIter(vec, 2, problemSize);
       kernelSwitch(vec, problemSize, iter, kernel);
       profilerPrintLine(problemSize, iter, kernel);
-
       problemSize = problemSize * EXPANSION;
     }
 
