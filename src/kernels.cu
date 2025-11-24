@@ -243,6 +243,7 @@ void initArrays(double *__restrict__ a,
     init_constants<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N);
 
   } else if (DataInitVariant == RANDOM) {
+    printf("Using random initialization.\n");
 
     unsigned long long seed = time(NULL); // unique seed
     init_randoms<<<(N / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);

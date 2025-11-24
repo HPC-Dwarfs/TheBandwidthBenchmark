@@ -32,7 +32,7 @@ void parseArguments(int argc, char **argv)
   int co;
   opterr = 0;
 
-  while ((co = getopt(argc, argv, "hm:s:n:i:d:p:t:b:")) != -1) {
+  while ((co = getopt(argc, argv, "hm:s:n:i:d:t:b:")) != -1) {
     switch (co) {
     case 'h': {
       printf(HELPTEXT);

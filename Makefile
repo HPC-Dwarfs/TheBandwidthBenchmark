@@ -60,6 +60,7 @@ $(BUILD_DIR)/%.s:  %.c
 clean:
 	$(info ===>  CLEAN)
 	@rm -rf $(BUILD_DIR)
+	@rm -rf $(TARGET)
 
 distclean:
 	$(info ===>  DIST CLEAN)

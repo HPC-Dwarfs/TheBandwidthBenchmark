@@ -60,6 +60,8 @@ int main(const int argc, char **argv)
       NUMVECTORS * (double)(bytesPerWord * N) * MILLIONTH);
 
 #ifdef _OPENMP
+  printf("OpenMP enabled, running with %zu threads\n", numThreads);
+
 #ifdef VERBOSE_AFFINITY
 #pragma omp parallel
   {
@@ -90,7 +92,6 @@ int main(const int argc, char **argv)
   double *b           = vec.b;
   double *c           = vec.c;
   double *d           = vec.d;
-  printf("OpenMP enabled, running with %zu threads\n", numThreads);
   printf("Doing %zu repetitions per kernel\n", Iterations);
 
   for (int k = 0; k < Iterations; k++) {
