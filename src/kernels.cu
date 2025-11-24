@@ -245,8 +245,7 @@ void initArrays(double *__restrict__ a,
   } else if (DataInitVariant == RANDOM) {
 
     unsigned long long seed = time(NULL); // unique seed
-    //FIXME: Is this intended?
-    init_randoms<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);
+    init_randoms<<<(N / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);
   }
 
   GPU_ERROR(cudaDeviceSynchronize());
