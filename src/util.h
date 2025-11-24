@@ -5,9 +5,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
-#define HLINE                                                                            \
-  "--------------------------------------------------------------------------"           \
-  "------\n"
+#define HLINE "------------------------------------------------------------------------\n"
 
 #define BANNER                                                                           \
   "_|                            _|_|_|                                  _|  "           \
@@ -34,5 +32,9 @@
 #endif
 
 #define DEBUG_MESSAGE debug_printf
+#define FPRINTF(...)                                                                     \
+  if (fprintf(__VA_ARGS__) < 0) {                                                        \
+    printf("%s:%d Error writing to file\n", __FILE__, __LINE__);                         \
+  }
 
 #endif

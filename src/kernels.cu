@@ -3,14 +3,17 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 extern "C" {
-
 #include "cli.h"
+#include "constants.h"
 #include "timing.h"
+#include "util.h"
+
 static int getSharedMemSize(
-    int thread_block_size, int thread_blocks_per_sm, const void *func);
-static void setBlockSize();
+    int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void *func);
+static void setBlockSize(void);
 }
 
 #define GPU_ERROR(ans)                                                                   \
@@ -22,16 +25,11 @@ static inline void gpuAssert(cudaError_t code, const char *file, int line, bool 
 {
   if (code != cudaSuccess) {
     fprintf(stderr, "GPUassert: \"%s\" in %s:%d\n", cudaGetErrorString(code), file, line);
-    if (abort)
+    if (abort) {
       exit((int)code);
+    }
   }
 }
-
-int thread_block_size                          = 1;
-int max_thread_block_size                      = 1;
-int max_threads_per_streaming_multiprocessor   = 1;
-int thread_blocks_per_streaming_multiprocessor = 1;
-double occupancy                               = 0.0;
 
 __global__ void init_constants(double *__restrict__ a,
     double *__restrict__ b,
@@ -39,16 +37,16 @@ __global__ void init_constants(double *__restrict__ a,
     double *__restrict__ d,
     const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
-  a[tidx] = 2.0;
-  b[tidx] = 2.0;
-  c[tidx] = 0.5;
-  d[tidx] = 1.0;
+  a[tidx] = INIT_A;
+  b[tidx] = INIT_B;
+  c[tidx] = INIT_C;
+  d[tidx] = INIT_D;
 }
 
 __global__ void init_randoms(double *__restrict__ a,
@@ -61,8 +59,9 @@ __global__ void init_randoms(double *__restrict__ a,
 
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
   // Declare and initialize RNG state
   curandState state;
@@ -77,33 +76,33 @@ __global__ void init_randoms(double *__restrict__ a,
 
 __global__ void initCuda(double *__restrict__ b, int scalar, const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
   b[tidx] = scalar;
 }
 
 __global__ void copyCuda(double *__restrict__ c, double *__restrict__ a, const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
   c[tidx] = a[tidx];
 }
 
 __global__ void updateCuda(double *__restrict__ a, int scalar, const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
   a[tidx] = a[tidx] * scalar;
 }
@@ -114,25 +113,25 @@ __global__ void triadCuda(double *__restrict__ a,
     const int scalar,
     const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
-  a[tidx] = b[tidx] + scalar * c[tidx];
+  a[tidx] = b[tidx] + (scalar * c[tidx]);
 }
 
 __global__ void daxpyCuda(
     double *__restrict__ a, double *__restrict__ b, const int scalar, const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
-  a[tidx] = a[tidx] + scalar * b[tidx];
+  a[tidx] = a[tidx] + (scalar * b[tidx]);
 }
 
 __global__ void striadCuda(double *__restrict__ a,
@@ -141,13 +140,13 @@ __global__ void striadCuda(double *__restrict__ a,
     double *__restrict__ d,
     const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
-  a[tidx] = b[tidx] + d[tidx] * c[tidx];
+  a[tidx] = b[tidx] + (d[tidx] * c[tidx]);
 }
 
 __global__ void sdaxpyCuda(double *__restrict__ a,
@@ -155,13 +154,13 @@ __global__ void sdaxpyCuda(double *__restrict__ a,
     double *__restrict__ c,
     const size_t N)
 {
-
   int tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N)
+  if (tidx >= N) {
     return;
+  }
 
-  a[tidx] = a[tidx] + b[tidx] * c[tidx];
+  a[tidx] = a[tidx] + (b[tidx] * c[tidx]);
 }
 
 __device__ void warpReduce(volatile int *shared_data, int tidx)
@@ -204,9 +203,7 @@ __global__ void sumCuda(
 }
 
 #define SHARED_MEM(kernel_name)                                                          \
-  getSharedMemSize(thread_block_size,                                                    \
-      thread_blocks_per_streaming_multiprocessor,                                        \
-      (const void *)&kernel_name)
+  getSharedMemSize(THREAD_BLOCK_SIZE, THREAD_BLOCK_PER_SM, (const void *)&(kernel_name))
 
 #define HARNESS(kernel, kernel_name)                                                     \
   int shared_mem_size = SHARED_MEM(kernel_name);                                         \
@@ -241,14 +238,15 @@ void initArrays(double *__restrict__ a,
 
   setBlockSize();
 
-  if (data_init_type == 0) {
+  if (DataInitVariant == CONSTANT) {
 
-    init_constants<<<N / thread_block_size + 1, thread_block_size>>>(a, b, c, d, N);
+    init_constants<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N);
 
-  } else if (data_init_type == 1) {
+  } else if (DataInitVariant == RANDOM) {
+    printf("Using random initialization.\n");
 
     unsigned long long seed = time(NULL); // unique seed
-    init_randoms<<<N / thread_block_size + 1, thread_block_size>>>(a, b, c, d, N, seed);
+    init_randoms<<<(N / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);
   }
 
   GPU_ERROR(cudaDeviceSynchronize());
@@ -256,22 +254,20 @@ void initArrays(double *__restrict__ a,
 
 double init(double *__restrict__ b, double scalar, const size_t N)
 {
-  HARNESS((initCuda<<<N / thread_block_size + 1, thread_block_size, 0>>>(b, scalar, N)),
+  HARNESS((initCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, 0>>>(b, scalar, N)),
       initCuda)
 }
 
 double copy(double *__restrict__ c, double *__restrict__ a, const size_t N)
 {
-
-  HARNESS((copyCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((copyCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               c, a, N)),
       copyCuda)
 }
 
 double update(double *__restrict__ a, double scalar, const size_t N)
 {
-
-  HARNESS((updateCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((updateCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               a, scalar, N)),
       updateCuda)
 }
@@ -282,8 +278,7 @@ double triad(double *__restrict__ a,
     const double scalar,
     const size_t N)
 {
-
-  HARNESS((triadCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((triadCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               a, b, c, scalar, N)),
       triadCuda)
 }
@@ -291,8 +286,7 @@ double triad(double *__restrict__ a,
 double daxpy(
     double *__restrict__ a, double *__restrict__ b, const double scalar, const size_t N)
 {
-
-  HARNESS((daxpyCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((daxpyCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               a, b, scalar, N)),
       daxpyCuda)
 }
@@ -303,8 +297,7 @@ double striad(double *__restrict__ a,
     double *__restrict__ d,
     const size_t N)
 {
-
-  HARNESS((striadCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((striadCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               a, b, c, d, N)),
       striadCuda)
 }
@@ -314,8 +307,7 @@ double sdaxpy(double *__restrict__ a,
     double *__restrict__ c,
     const size_t N)
 {
-
-  HARNESS((sdaxpyCuda<<<N / thread_block_size + 1, thread_block_size, shared_mem_size>>>(
+  HARNESS((sdaxpyCuda<<<N / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE, shared_mem_size>>>(
               a, b, c, N)),
       sdaxpyCuda)
 }
@@ -325,24 +317,24 @@ double sum(double *__restrict__ a, const size_t N)
   GPU_ERROR(cudaSetDevice(CUDA_DEVICE));
   GPU_ERROR(cudaFree(0));
 
-  double *a_out;
+  double *al;
 
   GPU_ERROR(cudaMalloc(
-      &a_out, (N + (thread_block_size - 1)) / thread_block_size * sizeof(double)));
+      &al, (N + (THREAD_BLOCK_SIZE - 1)) / THREAD_BLOCK_SIZE * sizeof(double)));
 
-  double S = getTimeStamp();
+  double start = getTimeStamp();
 
-  sumCuda<<<N / (thread_block_size * 2) + 1,
-      thread_block_size,
-      thread_block_size * sizeof(double)>>>(a, a_out, N);
+  sumCuda<<<N / (THREAD_BLOCK_SIZE * 2) + 1,
+      THREAD_BLOCK_SIZE,
+      THREAD_BLOCK_SIZE * sizeof(double)>>>(a, al, N);
 
   GPU_ERROR(cudaDeviceSynchronize());
 
-  double E = getTimeStamp();
+  double end = getTimeStamp();
 
-  GPU_ERROR(cudaFree(a_out));
+  GPU_ERROR(cudaFree(al));
 
-  return E - S;
+  return end - start;
 }
 
 void setBlockSize()
@@ -350,33 +342,38 @@ void setBlockSize()
   cudaDeviceProp prop;
   GPU_ERROR(cudaGetDeviceProperties(&prop, 0));
 
-  max_thread_block_size                    = prop.maxThreadsPerBlock;
-  max_threads_per_streaming_multiprocessor = prop.maxThreadsPerMultiProcessor;
+  // int max_THREAD_BLOCK_SIZE                    = prop.maxThreadsPerBlock;
+  int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
 
-  // Not the best case for thread_block_size.
-  // Varying thread_block_size can result in
+  // Not the best case for THREAD_BLOCK_SIZE.
+  // Varying THREAD_BLOCK_SIZE can result in
   // better performance and thread occupancy.
-  thread_block_size = prop.maxThreadsPerMultiProcessor / 2;
+  if (THREAD_BLOCK_SIZE_SET == 0) {
+    THREAD_BLOCK_SIZE = prop.maxThreadsPerMultiProcessor / 2;
+  }
 
 #ifdef THREADBLOCKSIZE
-  thread_block_size = THREADBLOCKSIZE;
+  THREAD_BLOCK_SIZE = THREADBLOCKSIZE;
 #endif
 
-  thread_blocks_per_streaming_multiprocessor =
-      floor(max_threads_per_streaming_multiprocessor / thread_block_size);
+  THREAD_BLOCK_PER_SM =
+      MIN(floor(maxThreadsPerSM / THREAD_BLOCK_SIZE), THREAD_BLOCK_PER_SM);
 
 #ifdef THREADBLOCKPERSM
-  thread_blocks_per_streaming_multiprocessor =
-      MIN(thread_blocks_per_streaming_multiprocessor, THREADBLOCKPERSM);
+  THREAD_BLOCK_PER_SM = MIN(THREAD_BLOCK_PER_SM, THREADBLOCKPERSM);
 #endif
 
-  occupancy =
-      (((double)thread_block_size * (double)thread_blocks_per_streaming_multiprocessor) /
-          (double)max_threads_per_streaming_multiprocessor) *
-      100;
+  double occupancy = (((double)THREAD_BLOCK_SIZE * (double)THREAD_BLOCK_PER_SM) /
+                         (double)maxThreadsPerSM) *
+                     100;
+
+  printf(HLINE);
+  printf("Thread Block Size: \t %d\n", THREAD_BLOCK_SIZE);
+  printf("Thread Block Per SM: \t %d\n", THREAD_BLOCK_PER_SM);
+  printf("Occupancy: \t\t %.2f %% \n", occupancy);
 }
 
-int getSharedMemSize(int thread_block_size, int thread_blocks_per_sm, const void *func)
+int getSharedMemSize(int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void *func)
 {
 
 #ifdef THREADBLOCKPERSM
@@ -384,12 +381,12 @@ int getSharedMemSize(int thread_block_size, int thread_blocks_per_sm, const void
   int shared_mem_size          = 1024;
 
   GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &max_active_thread_blocks, func, thread_block_size, shared_mem_size));
+      &max_active_thread_blocks, func, THREAD_BLOCK_SIZE, shared_mem_size));
 
   while (max_active_thread_blocks > thread_blocks_per_sm) {
     shared_mem_size += 256;
     GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &max_active_thread_blocks, func, thread_block_size, shared_mem_size));
+        &max_active_thread_blocks, func, THREAD_BLOCK_SIZE, shared_mem_size));
   }
   return shared_mem_size;
 #else

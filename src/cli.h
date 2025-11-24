@@ -5,9 +5,11 @@
 #ifndef CLI_H
 #define CLI_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
-typedef enum { WS = 0, TP, SQ, NUMTYPES } types;
+typedef enum { WS = 0, TP, SQ, NUMTYPES } ModeType;
+typedef enum { CONSTANT = 0, RANDOM } InitType;
 
 #define HELPTEXT                                                                         \
   "Usage: bwBench [options]\n\n"                                                         \
@@ -16,17 +18,23 @@ typedef enum { WS = 0, TP, SQ, NUMTYPES } types;
   "  -m <type>       Benchmark type, can be ws (default), tp, or seq.\n"                 \
   "  -s <long int>   Size in GB for allocated vectors\n"                                 \
   "  -n <long int>   Number of iterations\n"                                             \
-  "  -i <type>       Data initialization type, can be constant, or random"               \
-  "  -d <int>        (If GPU enabled) GPU ID on which you want your program "            \
-  "to run\n"
+  "  -i <type>       Data initialization type, can be constant, or random\n"             \
+  "  -d <int>        (If GPU enabled) GPU ID to execute on\n"
 
-extern int CUDA_DEVICE;
-extern int type;
-extern int SEQ;
-extern int data_init_type;
+extern int BenchmarkType;
+extern bool Sequential;
 extern size_t N;
-extern size_t ITERS;
+extern size_t Iterations;
+extern int DataInitVariant;
 
-extern void parseCLI(int, char **);
+#ifdef _NVCC
+extern int CUDA_DEVICE;
+extern int THREAD_BLOCK_SIZE;
+extern int THREAD_BLOCK_SIZE_SET;
+extern int THREAD_BLOCK_PER_SM;
+extern int THREAD_BLOCK_PER_SM_SET;
+#endif
+
+extern void parseArguments(int, char **);
 
 #endif /*CLI_H*/

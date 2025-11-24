@@ -156,6 +156,8 @@ in your path):
 make format
 ```
 
+---
+
 ### GPU Build (NVIDIA CUDA)
 
 When building bwBench with CUDA support, several compile-time parameters can be
@@ -204,26 +206,6 @@ specific GPU.
 3. **If the target `THREADBLOCKPERSM` is achievable** given hardware limits and the selected `THREADBLOCKSIZE`, the program uses it.
 4. **If not**, the program automatically falls back to the _maximum feasible_ blocks per SM for the given thread block size.
 
-## Support for clangd language server
-
-The Makefile will generate a `.clangd` configuration to correctly set all
-options for the clang language server. This is only important if you use an
-editor with LSP support and want to edit or explore the source code.
-It is required to use GNU Make 4.0 or newer. While older make versions will
-work, the generation of the `.clangd` configuration for the clang language
-server will not work. The default Make version included in MacOS is 3.81! Newer make
-versions can be easily installed on MacOS using the
-[Homebrew](https://brew.sh/) package manager.
-
-An alternative is to use [Bear](https://github.com/rizsotto/Bear), a tool that
-generates a compilation database for clang tooling. This method also will enable
-to jump to any definition without previously opened buffer. You have to build
-TheBandwidthBenchmark one time with Bear as a wrapper:
-
-```sh
-bear -- make
-```
-
 ## Usage
 
 To run the benchmark call:
@@ -243,13 +225,80 @@ To run the benchmark call:
 | `-s`   | `<long int>` | Size (in GB) of the allocated vectors.                                                                                      |
 | `-n`   | `<long int>` | Number of iterations.                                                                                                       |
 | `-i`   | `<type>`     | Data initialization type. Valid values:<br>• `constant` (default) <br>• `random`                                            |
-| `-p`   | `<type>`     | OpenMP Pinning type. Valid values:<br>• `compact`<br>• `off` (default)                                                      |
 | `-d`   | `<int>`      | _(GPU-enabled builds only)_ GPU ID on which the program should run. (default = 0)                                           |
-| `-tb`  | `<int>`      | _(GPU-enabled builds only)_ Thread Block Size (default = 1024)                                                              |
-| `-tsm` | `<int>`      | _(GPU-enabled builds only)_ Thread Block per SM. (default = 2)                                                              |
+| `-t`  | `<int>`      | _(GPU-enabled builds only)_ Thread Block Size (default = 1024)                                                              |
+| `-b` | `<int>`      | _(GPU-enabled builds only)_ Thread Block per SM. (default = 2)                                                              |
 
 In default mode the benchmark will output the results similar to the STREAM
 benchmark. Results are validated.
+
+---
+
+### Sequential vs Throughput mode: Sweeping over a range of problem size
+
+Apart from the default parallel work sharing mode with fixed problem size
+TheBandwidthBenchmark also supports two modes with varying problem sizes:
+sequential (call with `seq` mode option) and throughput (call with `tp` mode
+option). These are intended for scanning the complete memory hierarchy instead
+of only the main memory domain. See below for details on how to use those modes.
+
+**NOTICE:** The `seq` and `tp` modes may take up to 30m or more, depending on
+the system.
+
+These 2 modes performs a sweep over different array sizes ranging from N = 100
+until the **array size N** specified in `config.mk`.
+
+- **Sequential** - Runs TheBandwidthBenchmark in sequential mode for all kernels. Command to run in sequential mode:
+
+```sh
+./bwBench-<TOOLCHAIN> -m seq
+```
+
+- **Throughput (Multi-threaded)** - Runs TheBandwidthBenchmark in multi-threaded mode for all kernels. Requires flag **ENABLE_OPENMP=true** in `config.mk`.
+  Command to run in throughput mode:
+
+```sh
+./bwBench-<TOOLCHAIN> -m tp
+```
+
+Each of these modes output the results for each individual kernel.
+
+The output files will be created in the `./dat` directory.
+
+#### Visualizing the data from the Sequential/Throughput modes
+
+`Required:` **Gnuplot 5.2+**
+
+The user can visualize the outputs from the `./dat` directory using the provided
+gnuplot scripts. The scripts are located in `./gnuplot_script` directory where a
+bash file takes care of generating and executing the gnuplot commands. The plots
+can then be found in the `./plot` directory.
+
+There are 2 ways you can visualize the output:
+
+- **Plotting Array Size (N) vs Bandwidth (MB/s)** - this mode creates plot with
+  the Array Size (N) on x-axis and Bandwidth (MB/s) on y-axis. The Array size (N)
+  will be the same for each kernel. Use this makefile command to generate this
+  type of plot:
+
+```sh
+make plot
+```
+
+- **Plotting Dataset Size (MB) vs Bandwidth (MB/s)** - this mode creates plot
+  with the Dataset Size (MB) on x-axis and Bandwidth (MB/s) on y-axis. The Dataset
+  size (MB) will be the different for each kernel. For example the total dataset
+  for Init kernel will be 4x times less than the total dataset size for the STriad
+  kernel.
+
+```sh
+make plot_dataset
+```
+
+The script also generates a combined plot with bandwidths from all the kernels
+into one plot.
+
+---
 
 ### Thread pinning
 
@@ -289,6 +338,7 @@ Solution Validates
 
 If `likwid-pin` is not available you can use the command line argument `-p
 compact` to enable internal pinning using the `OMP_PLACES` pragma.
+
 
 ## Scaling runs
 
@@ -342,69 +392,25 @@ column format output file. In this case:
 Please be aware the single core memory bandwidth as well as the scaling behavior
 depends on the frequency settings.
 
-## Sequential vs Throughput mode: Sweeping over a range of problem size
+## Support for clangd language server
 
-Apart from the default parallel work sharing mode with fixed problem size
-TheBandwidthBenchmark also supports two modes with varying problem sizes:
-sequential (call with `seq` mode option) and throughput (call with `tp` mode
-option). These are intended for scanning the complete memory hierarchy instead
-of only the main memory domain. See below for details on how to use those modes.
+The Makefile will generate a `.clangd` configuration to correctly set all
+options for the clang language server. This is only important if you use an
+editor with LSP support and want to edit or explore the source code.
+It is required to use GNU Make 4.0 or newer. While older make versions will
+work, the generation of the `.clangd` configuration for the clang language
+server will not work. The default Make version included in MacOS is 3.81! Newer make
+versions can be easily installed on MacOS using the
+[Homebrew](https://brew.sh/) package manager.
 
-**NOTICE:** The `seq` and `tp` modes may take up to 30m or more, depending on
-the system.
-
-These 2 modes performs a sweep over different array sizes ranging from N = 100
-until the **array size N** specified in `config.mk`.
-
-- **Sequential** - Runs TheBandwidthBenchmark in sequential mode for all kernels. Command to run in sequential mode:
-
-```sh
-./bwBench-<TOOLCHAIN> -m seq
-```
-
-- **Throughput (Multi-threaded)** - Runs TheBandwidthBenchmark in multi-threaded mode for all kernels. Requires flag **ENABLE_OPENMP=true** in `config.mk`.
-  Command to run in throughput mode:
+An alternative is to use [Bear](https://github.com/rizsotto/Bear), a tool that
+generates a compilation database for clang tooling. This method also will enable
+to jump to any definition without previously opened buffer. You have to build
+TheBandwidthBenchmark one time with Bear as a wrapper:
 
 ```sh
-./bwBench-<TOOLCHAIN> -m tp
+bear -- make
 ```
-
-Each of these modes output the results for each individual kernel.
-
-The output files will be created in the `./dat` directory.
-
-### Visualizing the data from the Sequential/Throughput modes
-
-`Required:` **Gnuplot 5.2+**
-
-The user can visualize the outputs from the `./dat` directory using the provided
-gnuplot scripts. The scripts are located in `./gnuplot_script` directory where a
-bash file takes care of generating and executing the gnuplot commands. The plots
-can then be found in the `./plot` directory.
-
-There are 2 ways you can visualize the output:
-
-- **Plotting Array Size (N) vs Bandwidth (MB/s)** - this mode creates plot with
-  the Array Size (N) on x-axis and Bandwidth (MB/s) on y-axis. The Array size (N)
-  will be the same for each kernel. Use this makefile command to generate this
-  type of plot:
-
-```sh
-make plot
-```
-
-- **Plotting Dataset Size (MB) vs Bandwidth (MB/s)** - this mode creates plot
-  with the Dataset Size (MB) on x-axis and Bandwidth (MB/s) on y-axis. The Dataset
-  size (MB) will be the different for each kernel. For example the total dataset
-  for Init kernel will be 4x times less than the total dataset size for the STriad
-  kernel.
-
-```sh
-make plot_dataset
-```
-
-The script also generates a combined plot with bandwidths from all the kernels
-into one plot.
 
 ## Caveats
 

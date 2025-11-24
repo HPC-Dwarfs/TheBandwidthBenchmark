@@ -1,13 +1,22 @@
 ---
-Checks: "clang-diagnostic-*,clang-analyzer-*,clang-bugprone-*,readability-identifier-naming"
-HeaderFilterRegex: ".*"
-AnalyzeTemporaryDtors: false
+Checks: "clang-analyzer-*,bugprone-*,cert-*,misc-*,openmp-*,readability-*"
+HeaderFilterRegex: ""
 CheckOptions:
   - key: readability-identifier-naming.StructCase
     value: "CamelCase"
+  - key: readability-identifier-naming.TypedefCase
+    value: "CamelCase"
+  - key: readability-identifier-naming.TypedefSuffix
+    value: "Type"
   - key: readability-identifier-naming.FunctionCase
     value: "camelBack"
   - key: readability-identifier-naming.VariableCase
     value: "camelBack"
   - key: readability-identifier-naming.GlobalConstantCase
     value: "UPPER_CASE"
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: "CamelCase"
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: "0"
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: "0"

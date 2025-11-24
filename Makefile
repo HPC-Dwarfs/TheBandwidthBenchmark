@@ -64,7 +64,7 @@ clean:
 distclean:
 	$(info ===>  DIST CLEAN)
 	@rm -rf build
-	@rm -f $(TARGET)
+	@rm -f bwbench-*
 	@rm -rf $(DATA_DIR)
 	@rm -rf $(PLOTS_DIR)
 	@rm -f .clangd compile_commands.json

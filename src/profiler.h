@@ -10,18 +10,17 @@
 #include "likwid-marker.h"
 
 #define PROFILE(tag, call)                                                               \
-  _Pragma("omp parallel")                                                                \
+  _Pragma("omp parallel default(none)")                                                  \
   {                                                                                      \
     LIKWID_MARKER_START(#tag);                                                           \
   }                                                                                      \
-  _t[tag][k] = call;                                                                     \
-  _Pragma("omp parallel")                                                                \
+  Timings[tag][k] = call;                                                                \
+  _Pragma("omp parallel default(none)")                                                  \
   {                                                                                      \
     LIKWID_MARKER_STOP(#tag);                                                            \
   }
 #else
-#define PROFILE(tag, call) _t[tag][k] = call;
-
+#define PROFILE(tag, call) Timings[tag][k] = call;
 #endif
 
 typedef enum {
@@ -34,15 +33,15 @@ typedef enum {
   STRIAD,
   SDAXPY,
   NUMREGIONS
-} regions;
+} RegionType;
 
-extern double **_t;
+extern double **Timings;
 extern void allocateTimer();
 extern void freeTimer();
 extern void profilerInit();
-extern void profilerPrint(size_t size);
+extern void profilerPrint(size_t N);
 extern void profilerOpenFile(int region);
 extern void profilerCloseFile(void);
-extern void profilerPrintLine(size_t N, size_t iter, int j);
+extern void profilerPrintLine(size_t N, size_t iter, int kernel);
 
 #endif // __PROFILER_H

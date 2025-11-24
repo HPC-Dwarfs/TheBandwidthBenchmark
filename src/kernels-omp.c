@@ -6,6 +6,7 @@
 
 #include "allocate.h"
 #include "cli.h"
+#include "constants.h"
 #include "kernels.h"
 #include "timing.h"
 
@@ -25,14 +26,13 @@ static void initRandoms(double *, double *, double *, double *, const size_t);
 // Adding simd clause because ICX compiler does
 // not vectorise the code due to size_t dataype.
 #define HARNESS(kernel)                                                                  \
-  double S, E;                                                                           \
-  S = getTimeStamp();                                                                    \
+  double start = getTimeStamp();                                                         \
   _Pragma("omp parallel for simd schedule(static)") for (size_t i = 0; i < N; INCREMENT) \
   {                                                                                      \
     kernel;                                                                              \
   }                                                                                      \
-  E = getTimeStamp();                                                                    \
-  return E - S;
+  double end = getTimeStamp();                                                           \
+  return end - start;
 
 void allocateArrays(double **a, double **b, double **c, double **d, const size_t N)
 {
@@ -44,18 +44,18 @@ void allocateArrays(double **a, double **b, double **c, double **d, const size_t
 
 void initConstants(double *a, double *b, double *c, double *d, const size_t N)
 {
-
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < N; i++) {
-    a[i] = 2.0;
-    b[i] = 2.0;
-    c[i] = 0.5;
-    d[i] = 1.0;
+    a[i] = INIT_A;
+    b[i] = INIT_B;
+    c[i] = INIT_C;
+    d[i] = INIT_D;
   }
 }
 
 void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
 {
+  printf("Using random initialization.\n");
 
 #pragma omp parallel
   {
@@ -73,10 +73,9 @@ void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
 
 void initArrays(double *a, double *b, double *c, double *d, const size_t N)
 {
-
-  if (data_init_type == 0) {
+  if (DataInitVariant == CONSTANT) {
     initConstants(a, b, c, d, N);
-  } else if (data_init_type == 1) {
+  } else if (DataInitVariant == RANDOM) {
     initRandoms(a, b, c, d, N);
   }
 }
@@ -95,19 +94,19 @@ double init(double *restrict a, const double scalar, const size_t N)
 
 double sum(double *restrict a, const size_t N)
 {
-  double sum     = 0.0;
+  double sum         = 0.0;
 
-  const double S = getTimeStamp();
+  const double start = getTimeStamp();
 #pragma omp parallel for reduction(+ : sum) schedule(static)
   for (size_t i = 0; i < N; i++) {
     sum += a[i];
   }
-  const double E = getTimeStamp();
+  const double end = getTimeStamp();
 
   /* make the compiler think this makes actually sense */
   a[10] = sum;
 
-  return E - S;
+  return end - start;
 }
 
 double update(double *restrict a, const double scalar, const size_t N)
@@ -146,7 +145,7 @@ double triad(double *restrict a,
       __m512d avec     = _mm512_fmadd_pd(_mm512_load_pd(&c[i]), vs, bvec);
       _mm512_stream_pd(&a[i], avec);)
 #else
-  HARNESS(a[i] = b[i] + scalar * c[i])
+  HARNESS(a[i] = b[i] + (scalar * c[i]))
 #endif
 }
 
@@ -161,7 +160,7 @@ double striad(double *restrict a,
       __m512d avec = _mm512_fmadd_pd(_mm512_load_pd(&c[i]), dvec, bvec);
       _mm512_stream_pd(&a[i], avec);)
 #else
-  HARNESS(a[i] = b[i] + d[i] * c[i])
+  HARNESS(a[i] = b[i] + (d[i] * c[i]))
 #endif
 }
 
@@ -176,7 +175,7 @@ double daxpy(
       __m512d avec     = _mm512_fmadd_pd(bvec, vs, _mm512_load_pd(&a[i]));
       _mm512_stream_pd(&a[i], avec);)
 #else
-  HARNESS(a[i] = a[i] + scalar * b[i])
+  HARNESS(a[i] = a[i] + (scalar * b[i]))
 #endif
 }
 
@@ -190,6 +189,6 @@ double sdaxpy(double *restrict a,
       __m512d avec = _mm512_fmadd_pd(bvec, cvec, _mm512_load_pd(&a[i]));
       _mm512_stream_pd(&a[i], avec);)
 #else
-  HARNESS(a[i] = a[i] + b[i] * c[i])
+  HARNESS(a[i] = a[i] + (b[i] * c[i]))
 #endif
 }

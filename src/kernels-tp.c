@@ -27,24 +27,24 @@
   }                                                                                      \
   return E - S;
 
-double init_tp(double *restrict a, const double scalar, const size_t N, const size_t iter)
+double initTp(double *restrict a, const double scalar, const size_t N, const size_t iter)
 {
   HARNESS(al[i] = scalar)
 }
 
-double update_tp(
+double updateTp(
     const double *restrict a, const double scalar, const size_t N, const size_t iter)
 {
   HARNESS(al[i] = a[i] * scalar)
 }
 
-double copy_tp(
+double copyTp(
     double *restrict a, const double *restrict b, const size_t N, const size_t iter)
 {
   HARNESS(al[i] = b[i])
 }
 
-double triad_tp(double *restrict a,
+double triadTp(double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const double scalar,
@@ -54,7 +54,7 @@ double triad_tp(double *restrict a,
   HARNESS(al[i] = b[i] + scalar * c[i])
 }
 
-double striad_tp(double *restrict a,
+double striadTp(double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const double *restrict d,
@@ -64,7 +64,7 @@ double striad_tp(double *restrict a,
   HARNESS(al[i] = b[i] + d[i] * c[i])
 }
 
-double daxpy_tp(const double *restrict a,
+double daxpyTp(const double *restrict a,
     const double *restrict b,
     const double scalar,
     const size_t N,
@@ -73,7 +73,7 @@ double daxpy_tp(const double *restrict a,
   HARNESS(al[i] = a[i] + scalar * b[i])
 }
 
-double sdaxpy_tp(const double *restrict a,
+double sdaxpyTp(const double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const size_t N,
@@ -82,9 +82,10 @@ double sdaxpy_tp(const double *restrict a,
   HARNESS(al[i] = a[i] + b[i] * c[i])
 }
 
-double sum_tp(const double *restrict a, const size_t N, const size_t iter)
+double sumTp(const double *restrict a, const size_t N, const size_t iter)
 {
-  double S, E;
+  double start;
+  double end;
 
   _Pragma("omp parallel")
   {
@@ -93,9 +94,9 @@ double sum_tp(const double *restrict a, const size_t N, const size_t iter)
     {
       al[i] = a[i];
     }
-    double sum              = 0.0;
+    double sum                  = 0.0;
 
-    _Pragma("omp single") S = getTimeStamp();
+    _Pragma("omp single") start = getTimeStamp();
     for (size_t j = 0; j < iter; j++) {
       _Pragma("omp simd") for (size_t i = 0; i < N; i++)
       {
@@ -103,12 +104,12 @@ double sum_tp(const double *restrict a, const size_t N, const size_t iter)
       }
       al[N / 2] += sum;
     }
-    _Pragma("omp single") E = getTimeStamp();
+    _Pragma("omp single") end = getTimeStamp();
 
     free(al);
   }
 
   /* make the compiler think this makes actually sense */
 
-  return E - S;
+  return end - start;
 }

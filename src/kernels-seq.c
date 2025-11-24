@@ -22,67 +22,66 @@
   const double E = getTimeStamp();                                                       \
   return E - S;
 
-double init_seq(
-    double *restrict a, const double scalar, const size_t N, const size_t iter)
+double initSeq(double *restrict a, const double scalar, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = scalar)
 }
 
-double update_seq(
+double updateSeq(
     double *restrict a, const double scalar, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = a[i] * scalar)
 }
 
-double copy_seq(
+double copySeq(
     double *restrict a, const double *restrict b, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = b[i])
 }
 
-double triad_seq(double *restrict a,
+double triadSeq(double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const double scalar,
     const size_t N,
     const size_t iter)
 {
-  HARNESS(a[i] = b[i] + scalar * c[i])
+  HARNESS(a[i] = b[i] + (scalar * c[i]))
 }
 
-double striad_seq(double *restrict a,
+double striadSeq(double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const double *restrict d,
     const size_t N,
     const size_t iter)
 {
-  HARNESS(a[i] = b[i] + d[i] * c[i])
+  HARNESS(a[i] = b[i] + (d[i] * c[i]))
 }
 
-double daxpy_seq(double *restrict a,
+double daxpySeq(double *restrict a,
     const double *restrict b,
     const double scalar,
     const size_t N,
     const size_t iter)
 {
-  HARNESS(a[i] = a[i] + scalar * b[i])
+  HARNESS(a[i] = a[i] + (scalar * b[i]))
 }
 
-double sdaxpy_seq(double *restrict a,
+double sdaxpySeq(double *restrict a,
     const double *restrict b,
     const double *restrict c,
     const size_t N,
     const size_t iter)
 {
-  HARNESS(a[i] = a[i] + b[i] * c[i])
+  HARNESS(a[i] = a[i] + (b[i] * c[i]))
 }
 
-double sum_seq(double *restrict a, const size_t N, const size_t iter)
+double sumSeq(double *restrict a, const size_t N, const size_t iter)
 {
-  double sum     = 0.0;
+  double sum         = 0.0;
 
-  const double S = getTimeStamp();
+  const double start = getTimeStamp();
   for (size_t j = 0; j < iter; j++) {
     for (size_t i = 0; i < N; i++) {
       sum += a[i];
@@ -90,10 +89,10 @@ double sum_seq(double *restrict a, const size_t N, const size_t iter)
 
     a[10] = sum;
   }
-  const double E = getTimeStamp();
+  const double end = getTimeStamp();
 
   /* make the compiler think this makes actually sense */
   a[10] = sum;
 
-  return E - S;
+  return end - start;
 }

@@ -2,8 +2,6 @@
  * All rights reserved. This file is part of TheBandwidthBenchmark.
  * Use of this source code is governed by a MIT style
  * license that can be found in the LICENSE file. */
-#include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -18,126 +16,85 @@
 #endif
 
 #include "cli.h"
+#include "constants.h"
 #include "kernels.h"
 #include "profiler.h"
 #include "util.h"
 
-static void check(
-    const double *, const double *, const double *, const double *, size_t, size_t);
-static void kernelSwitch(double *,
-    const double *,
-    const double *,
-    const double *,
-    double,
-    size_t,
-    size_t,
-    size_t,
-    int);
+typedef struct {
+  double *a;
+  double *b;
+  double *c;
+  double *d;
+} VectorsType;
+
+static void check(VectorsType vec, size_t N, size_t iter);
+static size_t findIter(VectorsType vec, size_t iter, size_t problemSize);
+static void kernelSwitch(VectorsType vec, size_t N, size_t iter, int kernel);
+static void runMemoryHierarchySweeps(VectorsType vec, size_t N);
 
 int main(const int argc, char **argv)
 {
   const size_t bytesPerWord = sizeof(double);
 
-  // Data initialization from config.mk
-  N     = SIZE;
-  ITERS = NTIMES;
-
-  // ensure N is divisible by 8
-  size_t num_threads = 1;
-
 #ifdef _OPENMP
-#pragma omp parallel
-  {
-#pragma omp single
-    num_threads = omp_get_num_threads();
-  }
+  const size_t numThreads = omp_get_max_threads();
+#else
+  const size_t numThreads = 1;
 #endif
 
-  const int base = (N + num_threads - 1) / num_threads;
-  N              = ((base + 7) & ~7) * num_threads;
-
-  double *a, *b, *c, *d;
+  // Round up N so each thread gets an 8-aligned chunk
+  const size_t alignment        = 8;
+  const size_t perThread        = (N + numThreads - 1) / numThreads; // Ceiling division
+  const size_t alignedPerThread = (perThread + alignment - 1) & ~(alignment - 1);
+  N                             = alignedPerThread * numThreads;
 
   profilerInit();
-
-  parseCLI(argc, argv);
-
+  parseArguments(argc, argv);
   allocateTimer();
 
   printf("\n");
   printf(BANNER);
   printf(HLINE);
-  printf("Total allocated datasize: %8.2f MB\n", 4.0 * bytesPerWord * N * 1.0E-06);
+  printf("Total allocated datasize: %8.2f MB\n",
+      NUMVECTORS * (double)(bytesPerWord * N) * MILLIONTH);
 
 #ifdef _OPENMP
-  printf(HLINE);
-  _Pragma("omp parallel")
-  {
-    int k = omp_get_num_threads();
-    int i = omp_get_thread_num();
-
-#pragma omp single
-    printf("OpenMP enabled, running with %d threads\n", k);
+  printf("OpenMP enabled, running with %zu threads\n", numThreads);
 
 #ifdef VERBOSE_AFFINITY
-#pragma omp barrier
+#pragma omp parallel
+  {
+    int i = omp_get_thread_num();
 #pragma omp critical
     {
       printf("Thread %d running on processor %d\n", i, affinity_getProcessorId());
       affinity_getmask();
     }
-#endif
   }
+#endif
 #else
-  SEQ = 1;
+  Sequential = true;
 #endif
 
-  allocateArrays(&a, &b, &c, &d, N);
-  initArrays(a, b, c, d, N);
-
-  const double scalar = 0.1;
+  VectorsType vec;
+  allocateArrays(&vec.a, &vec.b, &vec.c, &vec.d, N);
+  initArrays(vec.a, vec.b, vec.c, vec.d, N);
 
 #ifndef _NVCC
-  if (type == TP || type == SQ) {
-    printf("Running memory hierarchy sweeps\n");
-
-    for (int j = 0; j < NUMREGIONS; j++) {
-      N = 100;
-
-      profilerOpenFile(j);
-
-      while (N < SIZE) {
-
-        double newtime = 0.0;
-        double oldtime = 0.0;
-        size_t iter    = 2;
-
-        while (newtime < 0.3) {
-          newtime = striad_seq(a, b, c, d, N, iter);
-          if (newtime > 0.1) {
-            break;
-          }
-          if ((newtime - oldtime) > 0.0) {
-            const double factor = 0.3 / (newtime - oldtime);
-            iter *= (int)factor;
-            oldtime = newtime;
-          }
-        }
-
-        kernelSwitch(a, b, c, d, scalar, N, ITERS, iter, j);
-
-        profilerPrintLine(N, iter, j);
-        N = ((double)N * 1.2);
-      }
-
-      profilerCloseFile();
-    }
-    exit(EXIT_SUCCESS);
+  if (BenchmarkType == TP || BenchmarkType == SQ) {
+    runMemoryHierarchySweeps(vec, N);
   }
 #endif
 
-  for (int k = 0; k < ITERS; k++) {
+  const double scalar = INIT_SCALAR;
+  double *a           = vec.a;
+  double *b           = vec.b;
+  double *c           = vec.c;
+  double *d           = vec.d;
+  printf("Doing %zu repetitions per kernel\n", Iterations);
 
+  for (int k = 0; k < Iterations; k++) {
     PROFILE(INIT, init(b, scalar, N));
 #ifdef _NVCC
     PROFILE(SUM, sum(a, N));
@@ -155,57 +112,53 @@ int main(const int argc, char **argv)
   }
 
 #ifndef _NVCC
-  check(a, b, c, d, N, ITERS);
+  check(vec, N, Iterations);
 #endif
   profilerPrint(N);
-
   freeTimer();
 
   return EXIT_SUCCESS;
 }
 
-void check(const double *a,
-    const double *b,
-    const double *c,
-    const double *d,
-    const size_t N,
-    const size_t ITERS)
+void check(const VectorsType vec, const size_t n, const size_t ITERS)
 {
-  if (data_init_type == 1) {
+  if (DataInitVariant == RANDOM) {
     return;
   }
 
-  double epsilon;
-
   /* reproduce initialization */
-  double aj = 2.0;
-  double bj = 2.0;
-  double cj = 0.5;
-  double dj = 1.0;
+  double aj           = INIT_A;
+  double bj           = INIT_B;
+  double cj           = INIT_C;
+  double dj           = INIT_D;
+  const double scalar = INIT_SCALAR;
 
   /* now execute timing loop */
   for (int k = 0; k < ITERS; k++) {
-    const double scalar = 0.1;
-    bj                  = scalar;
-    cj                  = aj;
-    aj                  = aj * scalar;
-    aj                  = bj + scalar * cj;
-    aj                  = aj + scalar * bj;
-    aj                  = bj + cj * dj;
-    aj                  = aj + bj * cj;
+    bj = scalar;
+    cj = aj;
+    aj = aj * scalar;
+    aj = bj + (scalar * cj);
+    aj = aj + (scalar * bj);
+    aj = bj + (cj * dj);
+    aj = aj + (bj * cj);
   }
 
-  aj          = aj * (double)(N);
-  bj          = bj * (double)(N);
-  cj          = cj * (double)(N);
-  dj          = dj * (double)(N);
+  aj          = aj * (double)(n);
+  bj          = bj * (double)(n);
+  cj          = cj * (double)(n);
+  dj          = dj * (double)(n);
 
   double asum = 0.0;
   double bsum = 0.0;
   double csum = 0.0;
   double dsum = 0.0;
+  double *a   = vec.a;
+  double *b   = vec.b;
+  double *c   = vec.c;
+  double *d   = vec.d;
 
-  for (size_t i = 0; i < N; i++) {
+  for (size_t i = 0; i < n; i++) {
     asum += a[i];
     bsum += b[i];
     csum += c[i];
@@ -218,7 +171,7 @@ void check(const double *a,
   printf("        Observed  : %f %f %f \n", asum, bsum, csum);
 #endif
 
-  epsilon = 1.e-8;
+  double epsilon = CHECK_MAX_EPSILON;
 
   if (ABS(aj - asum) / asum > epsilon) {
     printf("Failed Validation on array a[]\n");
@@ -241,114 +194,149 @@ void check(const double *a,
   }
 }
 
+#define RUN_KERNEL(operation, label, ...)                                                \
+  for (int k = 0; k < Iterations; k++) {                                                 \
+    Timings[label][k] = operation(__VA_ARGS__);                                          \
+  }
+
 #ifndef _NVCC
-void kernelSwitch(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d,
-    const double scalar,
-    const size_t N,
-    const size_t ITERS,
-    const size_t iter,
-    const int j)
+void kernelSwitch(
+    const VectorsType vec, const size_t N, const size_t iter, const int kernel)
 {
-  switch (j) {
+  double scalar = INIT_SCALAR;
+  double *a     = vec.a;
+  double *b     = vec.b;
+  double *c     = vec.c;
+  double *d     = vec.d;
+
+  switch (kernel) {
   case INIT:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[INIT][k] = init_seq(a, scalar, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(initSeq, INIT, a, scalar, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[INIT][k] = init_tp(a, scalar, N, iter);
-      }
+      RUN_KERNEL(initTp, INIT, a, scalar, N, iter);
     }
     break;
 
   case SUM:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[SUM][k] = sum_seq(a, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(sumSeq, SUM, a, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[SUM][k] = sum_tp(a, N, iter);
-      }
+      RUN_KERNEL(sumTp, SUM, a, N, iter);
     }
     break;
 
   case COPY:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[COPY][k] = copy_seq(a, b, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(copySeq, COPY, a, b, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[COPY][k] = copy_tp(a, b, N, iter);
-      }
+      RUN_KERNEL(copyTp, COPY, a, b, N, iter);
     }
     break;
 
   case UPDATE:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[UPDATE][k] = update_seq(a, scalar, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(updateSeq, UPDATE, a, scalar, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[UPDATE][k] = update_tp(a, scalar, N, iter);
-      }
+      RUN_KERNEL(updateTp, UPDATE, a, scalar, N, iter);
     }
     break;
 
   case TRIAD:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[TRIAD][k] = triad_seq(a, b, c, scalar, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(triadSeq, TRIAD, a, b, c, scalar, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[TRIAD][k] = triad_tp(a, b, c, scalar, N, iter);
-      }
+      RUN_KERNEL(triadTp, TRIAD, a, b, c, scalar, N, iter);
     }
     break;
 
   case DAXPY:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[DAXPY][k] = daxpy_seq(a, b, scalar, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(daxpySeq, DAXPY, a, b, scalar, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[DAXPY][k] = daxpy_tp(a, b, scalar, N, iter);
-      }
+      RUN_KERNEL(daxpyTp, DAXPY, a, b, scalar, N, iter);
     }
     break;
 
   case STRIAD:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[STRIAD][k] = striad_seq(a, b, c, d, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(striadSeq, STRIAD, a, b, c, d, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[STRIAD][k] = striad_tp(a, b, c, d, N, iter);
-      }
+      RUN_KERNEL(striadTp, STRIAD, a, b, c, d, N, iter);
     }
     break;
 
   case SDAXPY:
-    if (SEQ) {
-      for (int k = 0; k < ITERS; k++) {
-        _t[SDAXPY][k] = sdaxpy_seq(a, b, c, N, iter);
-      }
+    if (Sequential) {
+      RUN_KERNEL(sdaxpySeq, SDAXPY, a, b, c, N, iter);
     } else {
-      for (int k = 0; k < ITERS; k++) {
-        _t[SDAXPY][k] = sdaxpy_tp(a, b, c, N, iter);
-      }
+      RUN_KERNEL(sdaxpyTp, SDAXPY, a, b, c, N, iter);
     }
     break;
   default:;
   }
+}
+
+size_t findIter(const VectorsType vec, size_t iter, const size_t problemSize)
+{
+  // Target runtime: 0.3 seconds for reliable measurements
+  const double targetTime   = 0.3;
+  const double minTime      = 0.1;
+  const double fallbackTime = 0.005;
+  const double safetyFactor = 0.9;
+  double *a                 = vec.a;
+  double *b                 = vec.b;
+  double *c                 = vec.c;
+  double *d                 = vec.d;
+
+  while (1) {
+    double newtime = striadSeq(a, b, c, d, problemSize, iter);
+    // printf("newtime: %d %e\n", (int)iter, newtime);
+
+    if (newtime >= minTime && newtime <= targetTime) {
+      // Found acceptable iteration count
+      break;
+    }
+
+    if (newtime < minTime) {
+      if (newtime == 0.0) {
+        newtime = fallbackTime;
+      }
+      // Too fast, increase iterations proportionally
+      const double factor = targetTime / newtime;
+      iter                = iter * (size_t)(factor * safetyFactor);
+      if (iter < 2) {
+        iter = 2;
+      }
+    } else {
+      // Too slow, we're done
+      break;
+    }
+  }
+
+  return iter;
+}
+
+static void runMemoryHierarchySweeps(VectorsType vec, const size_t N)
+{
+  Iterations = INCACHE_REPS;
+  printf("Running memory hierarchy sweeps\n");
+  printf("Using %zu repetitions per measurement.\n", Iterations);
+
+  for (int kernel = 0; kernel < NUMREGIONS; kernel++) {
+    size_t problemSize = STARTSIZE;
+    profilerOpenFile(kernel);
+
+    while (problemSize < N) {
+
+      const size_t iter = findIter(vec, 2, problemSize);
+      kernelSwitch(vec, problemSize, iter, kernel);
+      profilerPrintLine(problemSize, iter, kernel);
+      problemSize = problemSize * EXPANSION;
+    }
+
+    profilerCloseFile();
+  }
+  exit(EXIT_SUCCESS);
 }
 #endif

@@ -11,6 +11,7 @@
 #endif
 
 #include "cli.h"
+#include "constants.h"
 #include "likwid-marker.h"
 #include "profiler.h"
 #include "util.h"
@@ -19,14 +20,14 @@ typedef struct {
   char *label;
   size_t words;
   size_t flops;
-} workType;
+} WorkType;
 
-// double _t[NUMREGIONS][ITERS];
-double **_t;
-FILE *profilerFile                   = NULL;
-char *dat_directory                  = "dat\0";
+// double timings[NUMREGIONS][ITERS];
+double **Timings;
+FILE *ProfilerFile                  = NULL;
+char *DataDirectory                 = "dat\0";
 
-static workType _regions[NUMREGIONS] = {
+static WorkType Regions[NUMREGIONS] = {
   { "Init",   1, 0 },
   { "Sum",    1, 1 },
   { "Copy",   2, 0 },
@@ -40,7 +41,7 @@ static workType _regions[NUMREGIONS] = {
 void profilerInit(void)
 {
   LIKWID_MARKER_INIT;
-  _Pragma("omp parallel")
+  _Pragma("omp parallel default(none)")
   {
     LIKWID_MARKER_REGISTER("INIT");
     LIKWID_MARKER_REGISTER("SUM");
@@ -59,100 +60,106 @@ static void computeStats(double *avgtime, double *maxtime, double *mintime, cons
   *maxtime = 0;
   *mintime = FLT_MAX;
 
-  for (int k = 1; k < ITERS; k++) {
-    *avgtime += _t[j][k];
-    *mintime = MIN(*mintime, _t[j][k]);
-    *maxtime = MAX(*maxtime, _t[j][k]);
+  for (int k = 1; k < Iterations; k++) {
+    *avgtime += Timings[j][k];
+    *mintime = MIN(*mintime, Timings[j][k]);
+    *maxtime = MAX(*maxtime, Timings[j][k]);
   }
 
-  *avgtime /= (double)(ITERS - 1);
+  *avgtime /= (double)(Iterations - 1);
 }
 
 void allocateTimer()
 {
-  _t = malloc(NUMREGIONS * sizeof(double *));
-  for (int i = 0; i < NUMREGIONS; i++)
-    _t[i] = malloc(ITERS * sizeof(double));
+  Timings = (double **)malloc(NUMREGIONS * sizeof(double *));
+  for (int i = 0; i < NUMREGIONS; i++) {
+    Timings[i] = malloc(Iterations * sizeof(double));
+  }
 }
 
 void freeTimer()
 {
-  for (int i = 0; i < NUMREGIONS; i++)
-    free(_t[i]);
-  free(_t);
+  for (int i = 0; i < NUMREGIONS; i++) {
+    free(Timings[i]);
+  }
+  free((void *)Timings);
 }
 
 void profilerOpenFile(const int region)
 {
-  char filename[40];
-  sprintf(filename, "%s/%s.dat", dat_directory, _regions[region].label);
-  profilerFile = fopen(filename, "w");
-  if (_regions[region].flops == 0) {
-    fprintf(profilerFile,
+  char filename[MAXSTRLEN];
+  sprintf(filename, "%s/%s.dat", DataDirectory, Regions[region].label);
+  ProfilerFile = fopen(filename, "w");
+  if (Regions[region].flops == 0) {
+    FPRINTF(ProfilerFile,
         "# %s: %lu words, no flops\n",
-        _regions[region].label,
-        _regions[region].words);
-    fprintf(profilerFile,
+        Regions[region].label,
+        Regions[region].words);
+    FPRINTF(ProfilerFile,
         "# N  Bytes(MB)  Rate(GB/s)  Avg time(s)  Min time(s)  Max time(s)\n");
   } else {
-    fprintf(profilerFile,
+    FPRINTF(ProfilerFile,
         "# %s: %lu words, %lu flops\n",
-        _regions[region].label,
-        _regions[region].words,
-        _regions[region].words);
-    fprintf(profilerFile,
+        Regions[region].label,
+        Regions[region].words,
+        Regions[region].words);
+    FPRINTF(ProfilerFile,
         "# N  Bytes(MB)  Rate(GB/s)  Rate(GFlop/s)  Avg time(s)  Min time(s)  "
         "Max time(s)\n");
   }
 
-  printf("Running kernel %s\n", _regions[region].label);
+  printf("Running kernel %s\n", Regions[region].label);
 }
 
 void profilerCloseFile(void)
 {
-  fclose(profilerFile);
+  if (fclose(ProfilerFile) != 0) {
+    perror("Error closing profiler file");
+  }
 }
 
-void profilerPrintLine(const size_t N, const size_t iter, const int j)
+void profilerPrintLine(const size_t N, const size_t iter, const int kernel)
 {
   size_t bytesPerWord = sizeof(double);
-  double avgtime, maxtime, mintime;
-
-  int num_threads = 1;
+  double avgtime;
+  double maxtime;
+  double mintime;
+  size_t numThreads = 1;
 
 #ifdef _OPENMP
-  if (!SEQ) {
-    _Pragma("omp parallel")
-    {
-      num_threads = omp_get_num_threads();
-    }
+  if (!Sequential) {
+    numThreads = omp_get_max_threads();
   }
+#else
 #endif
 
-  computeStats(&avgtime, &maxtime, &mintime, j);
-  double bytes = (double)_regions[j].words * sizeof(double) * N * num_threads;
-  double flops = (double)_regions[j].flops * N * iter * num_threads;
+  computeStats(&avgtime, &maxtime, &mintime, kernel);
+  double bytes =
+      (double)Regions[kernel].words * sizeof(double) * (double)(N * numThreads);
+  double flops = (double)Regions[kernel].flops * (double)(N * iter * numThreads);
+  //double bytes = (double)Regions[j].words * sizeof(double) * N * numThreads;
+  //double flops = (double)Regions[j].flops * N * iter * numThreads;
 
   // N  Bytes(MB)  Rate(GB/s)  Rate(MFlop/s)  Avg time(s)  Min time(s)  Max
   // time(s)
   if (flops > 0) {
-    fprintf(profilerFile,
+    FPRINTF(ProfilerFile,
         "%lu %11.5f %11.2f %11.2f %11.4f  %11.4f  %11.4f\n",
         N,
-        1.0E-06 * bytes,
-        1.0E-09 * bytes * iter / mintime,
-        1.0E-09 * flops / mintime,
+        MILLIONTH * bytes,
+        BILLIONTH * bytes * iter / mintime,
+        BILLIONTH * flops / mintime,
         avgtime,
         mintime,
         maxtime);
   }
   // N  Bytes(MB)  Rate(GB/s)  Avg time(s)  Min time(s)  Max time(s)
   else {
-    fprintf(profilerFile,
+    FPRINTF(ProfilerFile,
         "%lu %11.5f %11.2f %11.4f  %11.4f  %11.4f\n",
         N,
-        1.0E-06 * bytes,
-        1.0E-09 * bytes * iter / mintime,
+        MILLIONTH * bytes,
+        BILLIONTH * bytes * iter / mintime,
         avgtime,
         mintime,
         maxtime);
@@ -161,7 +168,9 @@ void profilerPrintLine(const size_t N, const size_t iter, const int j)
 
 void profilerPrint(const size_t N)
 {
-  double avgtime, maxtime, mintime;
+  double avgtime;
+  double maxtime;
+  double mintime;
 
 #ifdef VERBOSE_DATASIZE
   size_t bytesPerWord = sizeof(double);
@@ -180,21 +189,21 @@ void profilerPrint(const size_t N)
 
   for (int j = 0; j < NUMREGIONS; j++) {
     computeStats(&avgtime, &maxtime, &mintime, j);
-    const double bytes = (double)_regions[j].words * sizeof(double) * N;
-    const double flops = (double)_regions[j].flops * N;
+    const double bytes = (double)Regions[j].words * sizeof(double) * (double)N;
+    const double flops = (double)Regions[j].flops * (double)N;
 
     if (flops > 0) {
       printf("%-12s%11.2f %11.2f %11.4f  %11.4f  %11.4f\n",
-          _regions[j].label,
-          1.0E-09 * bytes / mintime,
-          1.0E-09 * flops / mintime,
+          Regions[j].label,
+          BILLIONTH * bytes / mintime,
+          BILLIONTH * flops / mintime,
           avgtime,
           mintime,
           maxtime);
     } else {
       printf("%-12s%11.2f      -      %11.4f  %11.4f  %11.4f\n",
-          _regions[j].label,
-          1.0E-09 * bytes / mintime,
+          Regions[j].label,
+          BILLIONTH * bytes / mintime,
           avgtime,
           mintime,
           maxtime);
