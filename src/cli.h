@@ -10,6 +10,7 @@
 
 typedef enum { WS = 0, TP, SQ, NUMTYPES } ModeType;
 typedef enum { CONSTANT = 0, RANDOM } InitType;
+typedef enum { VEC0 = 0, VEC2, VEC4} VectorizedType;
 
 #define HELPTEXT                                                                         \
   "Usage: bwBench [options]\n\n"                                                         \
@@ -19,7 +20,8 @@ typedef enum { CONSTANT = 0, RANDOM } InitType;
   "  -s <long int>   Size in GB for allocated vectors\n"                                 \
   "  -n <long int>   Number of iterations\n"                                             \
   "  -i <type>       Data initialization type, can be constant, or random\n"             \
-  "  -d <int>        (If GPU enabled) GPU ID to execute on\n"
+  "  -d <int>        (If GPU enabled) GPU ID to execute on\n"                            \
+  "  -v <0,2,4>      (If GPU enabled) what size of vector load to use\n"
 
 extern int BenchmarkType;
 extern bool Sequential;
