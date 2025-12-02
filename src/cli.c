@@ -25,7 +25,7 @@ int THREAD_BLOCK_PER_SM     = 1024;
 int THREAD_BLOCK_SIZE       = 2;
 int THREAD_BLOCK_SIZE_SET   = 0;
 int THREAD_BLOCK_PER_SM_SET = 0;
-int VecVariant   = VEC0;
+int VEC_VARIANT             = VEC0;
 #endif
 
 void parseArguments(int argc, char **argv)
@@ -143,11 +143,11 @@ void parseArguments(int argc, char **argv)
       }
 
       if (val == 0) {
-        VecVariant = VEC0;
+        VEC_VARIANT = VEC0;
       } else if (val == 2) {
-        VecVariant = VEC2;
+        VEC_VARIANT = VEC2;
       } else if (val == 4) {
-        VecVariant = VEC4;
+        VEC_VARIANT = VEC4;
       } else {
         fprintf(stderr, "Unknown vectorization width: %ld. Allowed: 0, 2, 4\n", val);
         exit(EXIT_FAILURE);
