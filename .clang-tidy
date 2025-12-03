@@ -1,6 +1,26 @@
 ---
-Checks: "clang-analyzer-*,bugprone-*,cert-*,misc-*,openmp-*,readability-*"
-HeaderFilterRegex: ""
+Checks: performance-*,
+  misc-*,
+  android-cloexec-*,
+  readability-duplicate-include,
+  readability-misleading-indentation,
+  readability-identifier-naming,
+  bugprone-assert-side-effect,
+  bugprone-macro-repeated-side-effects,
+  bugprone-infinite-loop,
+  bugprone-macro-parentheses,
+  bugprone-posix-return,
+  bugprone-reserved-identifier,
+  bugprone-signal-handler,
+  bugprone-signed-char-misuse,
+  bugprone-sizeof-expression,
+  bugprone-branch-clone,
+  -clang-analyzer-security.insecureAPI.*,
+  -misc-no-recursion,
+
+# treat all warnings as errors
+WarningsAsErrors: "*"
+
 CheckOptions:
   - key: readability-identifier-naming.StructCase
     value: "CamelCase"
@@ -16,7 +36,7 @@ CheckOptions:
     value: "UPPER_CASE"
   - key: readability-identifier-naming.GlobalVariableCase
     value: "CamelCase"
-  - key: readability-identifier-length.MinimumVariableNameLength
-    value: "0"
-  - key: readability-identifier-length.MinimumParameterNameLength
-    value: "0"
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: "ASSERT"
+
+ExtraArgs: [-std=c11, -DDEBUG]
