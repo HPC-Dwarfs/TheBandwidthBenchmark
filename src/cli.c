@@ -19,7 +19,7 @@ int DataInitVariant = CONSTANT;
 size_t N            = SIZE;
 size_t Iterations   = NTIMES;
 
-#ifdef _NVCC
+#if defined(_NVCC) || defined(_HIP)
 int CUDA_DEVICE             = 0;
 int THREAD_BLOCK_PER_SM     = 1024;
 int THREAD_BLOCK_SIZE       = 2;
@@ -91,8 +91,8 @@ void parseArguments(int argc, char **argv)
       }
       break;
     }
-
-#ifdef _NVCC
+    
+  #if defined(_NVCC) || defined(_HIP)
     case 'd': {
       char *end;
       errno          = 0;
