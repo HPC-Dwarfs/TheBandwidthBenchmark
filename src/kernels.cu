@@ -317,6 +317,7 @@ double init(double *__restrict__ b, double scalar, const size_t N)
     break;
   }
   }
+  printf("something horrible UB is happening and u should never reach this point since we pre-check")
   abort();
 }
 
