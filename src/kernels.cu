@@ -1,5 +1,47 @@
+#ifdef __HIP__
+#include <hip/hip_runtime.h>
+#include <hiprand_kernel.h>
+#define cudaDeviceProp hipDeviceProp_t
+#define cudaGetDeviceProperties hipGetDeviceProperties
+#define cudaMalloc hipMalloc
+#define cudaFree hipFree
+#define cudaSetDevice hipSetDevice
+#define cudaDeviceSynchronize hipDeviceSynchronize
+#define cudaSuccess hipSuccess
+#define cudaError_t hipError_t
+#define cudaGetErrorString hipGetErrorString
+#define cudaOccupancyMaxActiveBlocksPerMultiprocessor hipOccupancyMaxActiveBlocksPerMultiprocessor
+#define curandState hiprandState
+#define curand_init hiprand_init
+#define curand_uniform hiprand_uniform
+#define __global__ __global__
+#define __device__ __device__
+#define __shared__ __shared__
+#define __restrict__ __restrict__
+#define extern "C" extern "C"
+#else
 #include <cuda_runtime.h>
 #include <curand_kernel.h>
+#define cudaDeviceProp cudaDeviceProp
+#define cudaGetDeviceProperties cudaGetDeviceProperties
+#define cudaMalloc cudaMalloc
+#define cudaFree cudaFree
+#define cudaSetDevice cudaSetDevice
+#define cudaDeviceSynchronize cudaDeviceSynchronize
+#define cudaSuccess cudaSuccess
+#define cudaError_t cudaError_t
+#define cudaGetErrorString cudaGetErrorString
+#define cudaOccupancyMaxActiveBlocksPerMultiprocessor cudaOccupancyMaxActiveBlocksPerMultiprocessor
+#define curandState curandState
+#define curand_init curand_init
+#define curand_uniform curand_uniform
+#define __global__ __global__
+#define __device__ __device__
+#define __shared__ __shared__
+#define __restrict__ __restrict__
+#define extern "C" extern "C"
+#endif
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,13 +107,19 @@ __global__ void init_randoms(double *__restrict__ a,
 
   // Declare and initialize RNG state
   curandState state;
-  curand_init(seed, tidx, 0,
-      &state); // seed, sequence number, offset, &state
-
+#ifdef __HIP__
+  hiprand_init(seed, tidx, 0, &state); // seed, sequence number, offset, &state
+  a[tidx] = (double)hiprand_uniform(&state);
+  b[tidx] = (double)hiprand_uniform(&state);
+  c[tidx] = (double)hiprand_uniform(&state);
+  d[tidx] = (double)hiprand_uniform(&state);
+#else
+  curand_init(seed, tidx, 0, &state); // seed, sequence number, offset, &state
   a[tidx] = (double)curand_uniform(&state);
   b[tidx] = (double)curand_uniform(&state);
   c[tidx] = (double)curand_uniform(&state);
   d[tidx] = (double)curand_uniform(&state);
+#endif
 }
 
 __global__ void initCuda(double *__restrict__ b, int scalar, const size_t N)
