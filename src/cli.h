@@ -27,7 +27,7 @@ extern size_t N;
 extern size_t Iterations;
 extern int DataInitVariant;
 
-#ifdef _NVCC
+#if defined(_NVCC) || defined(_HIP)
 extern int CUDA_DEVICE;
 extern int THREAD_BLOCK_SIZE;
 extern int THREAD_BLOCK_SIZE_SET;
