@@ -1,7 +1,7 @@
 #ifndef PORTABILITY_H
 #define PORTABILITY_H
 
-#if defined(__HIP__) || defined(__HIPCC__)
+#if defined(_HIP)
 
 #include <hip/hip_runtime.h>
 #include <hiprand_kernel.h>
@@ -13,7 +13,7 @@
 #define cudaFree hipFree
 #define cudaMalloc hipMalloc
 #define cudaDeviceSynchronize hipDeviceSynchronize
-#define cudaDeviceProp hipDeviceProp
+#define cudaDeviceProp hipDeviceProp_t
 #define cudaGetDeviceProperties hipGetDeviceProperties
 #define cudaOccupancyMaxActiveBlocksPerMultiprocessor                          \
   hipOccupancyMaxActiveBlocksPerMultiprocessor

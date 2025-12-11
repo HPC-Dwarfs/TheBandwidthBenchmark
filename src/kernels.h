@@ -19,7 +19,7 @@ extern double striad(
 extern double daxpy(double *a, const double *b, double scalar, size_t N);
 extern double sdaxpy(double *a, const double *b, const double *c, size_t N);
 
-#ifndef _NVCC
+#ifndef _NVCC //) || defined(_HIP)
 extern double initSeq(double *a, double scalar, size_t N, size_t iter);
 extern double updateSeq(double *a, double scalar, size_t N, size_t iter);
 extern double sumSeq(double *a, size_t N, size_t iter);

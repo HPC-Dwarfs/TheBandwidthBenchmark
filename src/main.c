@@ -81,7 +81,7 @@ int main(const int argc, char **argv)
   allocateArrays(&vec.a, &vec.b, &vec.c, &vec.d, N);
   initArrays(vec.a, vec.b, vec.c, vec.d, N);
 
-#ifndef _NVCC
+#if !defined(_NVCC) && !defined(_HIP)
   if (BenchmarkType == TP || BenchmarkType == SQ) {
     runMemoryHierarchySweeps(vec, N);
   }
@@ -96,8 +96,8 @@ int main(const int argc, char **argv)
 
   for (int k = 0; k < Iterations; k++) {
     PROFILE(INIT, init(b, scalar, N));
-#ifdef _NVCC
-    PROFILE(SUM, sum(a, N));
+#if defined(_NVCC) || defined(_HIP)
+     PROFILE(SUM, sum(a, N));
 #else
     const double tmp = a[10];
     PROFILE(SUM, sum(a, N));
@@ -111,7 +111,7 @@ int main(const int argc, char **argv)
     PROFILE(SDAXPY, sdaxpy(a, b, c, N));
   }
 
-#ifndef _NVCC
+#if !defined(_NVCC) && !defined(_HIP)
   check(vec, N, Iterations);
 #endif
   profilerPrint(N);
@@ -199,7 +199,7 @@ void check(const VectorsType vec, const size_t n, const size_t ITERS)
     Timings[label][k] = operation(__VA_ARGS__);                                          \
   }
 
-#ifndef _NVCC
+#if !defined(_NVCC) && !defined(_HIP)
 void kernelSwitch(
     const VectorsType vec, const size_t N, const size_t iter, const int kernel)
 {
