@@ -34,7 +34,7 @@ static inline void gpuAssert(cudaError_t code, const char *file, int line,
 __global__ void init_constants(double *__restrict__ a, double *__restrict__ b,
                                double *__restrict__ c, double *__restrict__ d,
                                const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -50,7 +50,7 @@ __global__ void init_randoms(double *__restrict__ a, double *__restrict__ b,
                              double *__restrict__ c, double *__restrict__ d,
                              const size_t N, unsigned long long seed) {
 
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -68,7 +68,7 @@ __global__ void init_randoms(double *__restrict__ a, double *__restrict__ b,
 }
 
 __global__ void initCuda(double *__restrict__ b, int scalar, const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -79,7 +79,7 @@ __global__ void initCuda(double *__restrict__ b, int scalar, const size_t N) {
 
 __global__ void copyCuda(double *__restrict__ c, double *__restrict__ a,
                          const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -89,7 +89,7 @@ __global__ void copyCuda(double *__restrict__ c, double *__restrict__ a,
 }
 
 __global__ void updateCuda(double *__restrict__ a, int scalar, const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -101,7 +101,7 @@ __global__ void updateCuda(double *__restrict__ a, int scalar, const size_t N) {
 __global__ void triadCuda(double *__restrict__ a, double *__restrict__ b,
                           double *__restrict__ c, const int scalar,
                           const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -112,7 +112,7 @@ __global__ void triadCuda(double *__restrict__ a, double *__restrict__ b,
 
 __global__ void daxpyCuda(double *__restrict__ a, double *__restrict__ b,
                           const int scalar, const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -124,7 +124,7 @@ __global__ void daxpyCuda(double *__restrict__ a, double *__restrict__ b,
 __global__ void striadCuda(double *__restrict__ a, double *__restrict__ b,
                            double *__restrict__ c, double *__restrict__ d,
                            const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -135,7 +135,7 @@ __global__ void striadCuda(double *__restrict__ a, double *__restrict__ b,
 
 __global__ void sdaxpyCuda(double *__restrict__ a, double *__restrict__ b,
                            double *__restrict__ c, const size_t N) {
-  int tidx = threadIdx.x + blockIdx.x * blockDim.x;
+  size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
   if (tidx >= N) {
     return;
@@ -144,7 +144,7 @@ __global__ void sdaxpyCuda(double *__restrict__ a, double *__restrict__ b,
   a[tidx] = a[tidx] + (b[tidx] * c[tidx]);
 }
 
-__device__ void warpReduce(volatile int *shared_data, int tidx) {
+__device__ void warpReduce(volatile int *shared_data, size_t tidx) {
   shared_data[tidx] += shared_data[tidx + 32];
   shared_data[tidx] += shared_data[tidx + 16];
   shared_data[tidx] += shared_data[tidx + 8];
@@ -159,12 +159,12 @@ __global__ void sumCuda(double *__restrict__ a, double *__restrict__ a_out,
                         const size_t N) {
   extern __shared__ int shared_data[];
 
-  unsigned int tidx = threadIdx.x;
-  unsigned int i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
+  size_t tidx = threadIdx.x;
+  size_t i = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
   shared_data[tidx] = a[i] + a[i + blockDim.x];
   __syncthreads();
 
-  for (int s = blockDim.x / 2; s > 32; s >>= 1) {
+  for (size_t s = blockDim.x / 2; s > 32; s >>= 1) {
 
     if (tidx < s) {
       shared_data[tidx] += shared_data[tidx + s];
