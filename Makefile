@@ -13,6 +13,17 @@ MAKE_DIR   = ./mk
 Q         ?= @
 
 #DO NOT EDIT BELOW
+ifeq (,$(wildcard config.mk))
+$(info )
+$(info ====================================================================)
+$(info config.mk does not exist!)
+$(info Creating config.mk from ./mk/config-default.mk)
+$(info Please adapt config.mk to your needs and run make again.)
+$(info ====================================================================)
+$(info )
+$(shell cp ./mk/config-default.mk config.mk)
+$(error Stopping after creating config.mk - please review and run make again)
+endif
 include config.mk
 include $(MAKE_DIR)/include_$(TOOLCHAIN).mk
 include $(MAKE_DIR)/include_LIKWID.mk
@@ -22,6 +33,8 @@ VPATH     = $(SRC_DIR)
 ASM       = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.s,$(wildcard $(SRC_DIR)/*.c))
 OBJ       = $(filter-out $(BUILD_DIR)/kernels-%.o,$(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.c)))
 ifeq ($(strip $(TOOLCHAIN)),NVCC)
+OBJ      += $(patsubst $(SRC_DIR)/%.cu, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cu))
+else ifeq ($(strip $(TOOLCHAIN)),HIP)
 OBJ      += $(patsubst $(SRC_DIR)/%.cu, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/*.cu))
 else
 OBJ      += $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o,$(wildcard $(SRC_DIR)/kernels-*.c))

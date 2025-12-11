@@ -64,6 +64,7 @@ KERNEL(init_randoms)(double *__restrict__ a,
   b[tidx] = (double)curand_uniform(&state);
   c[tidx] = (double)curand_uniform(&state);
   d[tidx] = (double)curand_uniform(&state);
+#endif
 }
 
 KERNEL(initCuda)(double *__restrict__ b, int scalar, const size_t N)
