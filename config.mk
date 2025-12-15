@@ -6,10 +6,10 @@ ENABLE_LIKWID ?= false
 
 #Feature options
 # 4GB dataset for desktop systems
-OPTIONS  =  -DSIZE=500000000ull
+OPTIONS  =  -DSIZE=5000000000ull
 # 40GB dataset for server systems
 # OPTIONS  =  -DSIZE=1250000000ull
-OPTIONS +=  -DNTIMES=1000
+OPTIONS +=  -DNTIMES=10
 # Enable to enforce AVX512 streaming stores
 #OPTIONS +=  -DAVX512_INTRINSICS
 OPTIONS +=  -DARRAY_ALIGNMENT=64
