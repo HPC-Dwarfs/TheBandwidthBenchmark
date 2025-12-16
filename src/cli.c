@@ -25,6 +25,7 @@ int THREAD_BLOCK_PER_SM     = 1024;
 int THREAD_BLOCK_SIZE       = 2;
 int THREAD_BLOCK_SIZE_SET   = 0;
 int THREAD_BLOCK_PER_SM_SET = 0;
+int VEC_VARIANT             = VEC0;
 #endif
 
 void parseArguments(int argc, char **argv)
@@ -32,7 +33,7 @@ void parseArguments(int argc, char **argv)
   int co;
   opterr = 0;
 
-  while ((co = getopt(argc, argv, "hm:s:n:i:d:t:b:")) != -1) {
+  while ((co = getopt(argc, argv, "hm:s:n:i:d:t:b:v:")) != -1) {
     switch (co) {
     case 'h': {
       printf(HELPTEXT);
@@ -128,6 +129,30 @@ void parseArguments(int argc, char **argv)
       }
       THREAD_BLOCK_PER_SM     = (int)val;
       THREAD_BLOCK_PER_SM_SET = 1;
+      break;
+    }
+
+    case 'v': {
+      char *end;
+      errno          = 0;
+      const long val = strtol(optarg, &end, 10);
+
+      if (*end != '\0' || errno != 0) {
+        fprintf(stderr, "Invalid vectorization argument for -v: %s\n", optarg);
+        exit(EXIT_FAILURE);
+      }
+
+      if (val == 0) {
+        VEC_VARIANT = VEC0;
+      } else if (val == 2) {
+        VEC_VARIANT = VEC2;
+      } else if (val == 4) {
+        VEC_VARIANT = VEC4;
+      } else {
+        fprintf(stderr, "Unknown vectorization width: %ld. Allowed: 0, 2, 4\n", val);
+        exit(EXIT_FAILURE);
+      }
+
       break;
     }
 #endif

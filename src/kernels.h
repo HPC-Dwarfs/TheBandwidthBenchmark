@@ -6,43 +6,63 @@
 #define KERNELS_H_
 #include <stdlib.h>
 #include <time.h>
+#include "util.h"
 
-extern void allocateArrays(double **a, double **b, double **c, double **d, size_t N);
-extern void initArrays(double *a, double *b, double *c, double *d, size_t N);
-extern double init(double *a, double scalar, size_t N);
-extern double sum(double *a, size_t N);
-extern double update(double *a, double scalar, size_t N);
-extern double copy(double *a, const double *b, size_t N);
-extern double triad(double *a, const double *b, const double *c, double scalar, size_t N);
+extern void allocateArrays(
+    TBB_FLOAT **a, TBB_FLOAT **b, TBB_FLOAT **c, TBB_FLOAT **d, size_t N);
+extern void initArrays(TBB_FLOAT *a, TBB_FLOAT *b, TBB_FLOAT *c, TBB_FLOAT *d, size_t N);
+extern double init(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N);
+extern double sum(TBB_FLOAT *a, size_t N);
+extern double update(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N);
+extern double copy(TBB_FLOAT *a, const TBB_FLOAT *b, size_t N);
+extern double triad(
+    TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, TBB_FLOAT scalar, size_t N);
 extern double striad(
-    double *a, const double *b, const double *c, const double *d, size_t N);
-extern double daxpy(double *a, const double *b, double scalar, size_t N);
-extern double sdaxpy(double *a, const double *b, const double *c, size_t N);
+    TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, const TBB_FLOAT *d, size_t N);
+extern double daxpy(TBB_FLOAT *a, const TBB_FLOAT *b, TBB_FLOAT scalar, size_t N);
+extern double sdaxpy(TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, size_t N);
 
 #ifndef _NVCC
-extern double initSeq(double *a, double scalar, size_t N, size_t iter);
-extern double updateSeq(double *a, double scalar, size_t N, size_t iter);
-extern double sumSeq(double *a, size_t N, size_t iter);
-extern double copySeq(double *a, const double *b, size_t N, size_t iter);
-extern double triadSeq(
-    double *a, const double *b, const double *c, double scalar, size_t N, size_t iter);
-extern double striadSeq(
-    double *a, const double *b, const double *c, const double *d, size_t N, size_t iter);
-extern double daxpySeq(double *a, const double *b, double scalar, size_t N, size_t iter);
+extern double initSeq(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
+extern double updateSeq(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
+extern double sumSeq(TBB_FLOAT *a, size_t N, size_t iter);
+extern double copySeq(TBB_FLOAT *a, const TBB_FLOAT *b, size_t N, size_t iter);
+extern double triadSeq(TBB_FLOAT *a,
+    const TBB_FLOAT *b,
+    const TBB_FLOAT *c,
+    TBB_FLOAT scalar,
+    size_t N,
+    size_t iter);
+extern double striadSeq(TBB_FLOAT *a,
+    const TBB_FLOAT *b,
+    const TBB_FLOAT *c,
+    const TBB_FLOAT *d,
+    size_t N,
+    size_t iter);
+extern double daxpySeq(
+    TBB_FLOAT *a, const TBB_FLOAT *b, TBB_FLOAT scalar, size_t N, size_t iter);
 extern double sdaxpySeq(
-    double *a, const double *b, const double *c, size_t N, size_t iter);
+    TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, size_t N, size_t iter);
 
-extern double initTp(double *a, double scalar, size_t N, size_t iter);
-extern double updateTp(const double *a, double scalar, size_t N, size_t iter);
-extern double sumTp(const double *a, size_t N, size_t iter);
-extern double copyTp(double *a, const double *b, size_t N, size_t iter);
-extern double triadTp(
-    double *a, const double *b, const double *c, double scalar, size_t N, size_t iter);
-extern double striadTp(
-    double *a, const double *b, const double *c, const double *d, size_t N, size_t iter);
+extern double initTp(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
+extern double updateTp(const TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
+extern double sumTp(const TBB_FLOAT *a, size_t N, size_t iter);
+extern double copyTp(TBB_FLOAT *a, const TBB_FLOAT *b, size_t N, size_t iter);
+extern double triadTp(TBB_FLOAT *a,
+    const TBB_FLOAT *b,
+    const TBB_FLOAT *c,
+    TBB_FLOAT scalar,
+    size_t N,
+    size_t iter);
+extern double striadTp(TBB_FLOAT *a,
+    const TBB_FLOAT *b,
+    const TBB_FLOAT *c,
+    const TBB_FLOAT *d,
+    size_t N,
+    size_t iter);
 extern double daxpyTp(
-    const double *a, const double *b, double scalar, size_t N, size_t iter);
+    const TBB_FLOAT *a, const TBB_FLOAT *b, TBB_FLOAT scalar, size_t N, size_t iter);
 extern double sdaxpyTp(
-    const double *a, const double *b, const double *c, size_t N, size_t iter);
+    const TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, size_t N, size_t iter);
 #endif
 #endif

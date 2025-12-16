@@ -120,7 +120,7 @@ void profilerCloseFile(void)
 
 void profilerPrintLine(const size_t N, const size_t iter, const int kernel)
 {
-  size_t bytesPerWord = sizeof(double);
+  size_t bytesPerWord = sizeof(TBB_FLOAT);
   double avgtime;
   double maxtime;
   double mintime;
@@ -135,7 +135,7 @@ void profilerPrintLine(const size_t N, const size_t iter, const int kernel)
 
   computeStats(&avgtime, &maxtime, &mintime, kernel);
   double bytes =
-      (double)Regions[kernel].words * sizeof(double) * (double)(N * numThreads);
+      (double)Regions[kernel].words * sizeof(TBB_FLOAT) * (double)(N * numThreads);
   double flops = (double)Regions[kernel].flops * (double)(N * iter * numThreads);
   //double bytes = (double)Regions[j].words * sizeof(double) * N * numThreads;
   //double flops = (double)Regions[j].flops * N * iter * numThreads;
@@ -173,7 +173,7 @@ void profilerPrint(const size_t N)
   double mintime;
 
 #ifdef VERBOSE_DATASIZE
-  size_t bytesPerWord = sizeof(double);
+  size_t bytesPerWord = sizeof(TBB_FLOAT);
   printf(HLINE);
   printf("Dataset sizes\n");
   for (int i = 0; i < NUMREGIONS; i++) {
@@ -189,7 +189,7 @@ void profilerPrint(const size_t N)
 
   for (int j = 0; j < NUMREGIONS; j++) {
     computeStats(&avgtime, &maxtime, &mintime, j);
-    const double bytes = (double)Regions[j].words * sizeof(double) * (double)N;
+    const double bytes = (double)Regions[j].words * sizeof(TBB_FLOAT) * (double)N;
     const double flops = (double)Regions[j].flops * (double)N;
 
     if (flops > 0) {

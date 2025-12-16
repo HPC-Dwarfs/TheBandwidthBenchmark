@@ -10,6 +10,7 @@
 
 typedef enum { WS = 0, TP, SQ, NUMTYPES } ModeType;
 typedef enum { CONSTANT = 0, RANDOM } InitType;
+typedef enum { VEC0 = 0, VEC2, VEC4} VectorizedDataTransferType;
 
 #define HELPTEXT                                                                         \
   "Usage: bwBench [options]\n\n"                                                         \
@@ -33,6 +34,7 @@ extern int THREAD_BLOCK_SIZE;
 extern int THREAD_BLOCK_SIZE_SET;
 extern int THREAD_BLOCK_PER_SM;
 extern int THREAD_BLOCK_PER_SM_SET;
+extern int VEC_VARIANT;
 #endif
 
 extern void parseArguments(int, char **);

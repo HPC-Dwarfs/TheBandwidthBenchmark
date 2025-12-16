@@ -22,10 +22,10 @@
 #include "util.h"
 
 typedef struct {
-  double *a;
-  double *b;
-  double *c;
-  double *d;
+  TBB_FLOAT *a;
+  TBB_FLOAT *b;
+  TBB_FLOAT *c;
+  TBB_FLOAT *d;
 } VectorsType;
 
 static void check(VectorsType vec, size_t N, size_t iter);
@@ -35,7 +35,7 @@ static void runMemoryHierarchySweeps(VectorsType vec, size_t N);
 
 int main(const int argc, char **argv)
 {
-  const size_t bytesPerWord = sizeof(double);
+  const size_t bytesPerWord = sizeof(TBB_FLOAT);
 
 #ifdef _OPENMP
   const size_t numThreads = omp_get_max_threads();
@@ -44,7 +44,7 @@ int main(const int argc, char **argv)
 #endif
 
   // Round up N so each thread gets an 8-aligned chunk
-  const size_t alignment        = 8;
+  const size_t alignment        = sizeof(TBB_FLOAT);
   const size_t perThread        = (N + numThreads - 1) / numThreads; // Ceiling division
   const size_t alignedPerThread = (perThread + alignment - 1) & ~(alignment - 1);
   N                             = alignedPerThread * numThreads;
@@ -88,16 +88,16 @@ int main(const int argc, char **argv)
 #endif
 
   const double scalar = INIT_SCALAR;
-  double *a           = vec.a;
-  double *b           = vec.b;
-  double *c           = vec.c;
-  double *d           = vec.d;
+  TBB_FLOAT *a           = vec.a;
+  TBB_FLOAT *b           = vec.b;
+  TBB_FLOAT *c           = vec.c;
+  TBB_FLOAT *d           = vec.d;
   printf("Doing %zu repetitions per kernel\n", Iterations);
 
   for (int k = 0; k < Iterations; k++) {
     PROFILE(INIT, init(b, scalar, N));
 #if defined(_NVCC) || defined(_HIP)
-     PROFILE(SUM, sum(a, N));
+    PROFILE(SUM, sum(a, N));
 #else
     const double tmp = a[10];
     PROFILE(SUM, sum(a, N));
@@ -127,11 +127,11 @@ void check(const VectorsType vec, const size_t n, const size_t ITERS)
   }
 
   /* reproduce initialization */
-  double aj           = INIT_A;
-  double bj           = INIT_B;
-  double cj           = INIT_C;
-  double dj           = INIT_D;
-  const double scalar = INIT_SCALAR;
+  TBB_FLOAT aj           = INIT_A;
+  TBB_FLOAT bj           = INIT_B;
+  TBB_FLOAT cj           = INIT_C;
+  TBB_FLOAT dj           = INIT_D;
+  const TBB_FLOAT scalar = INIT_SCALAR;
 
   /* now execute timing loop */
   for (int k = 0; k < ITERS; k++) {
@@ -149,14 +149,14 @@ void check(const VectorsType vec, const size_t n, const size_t ITERS)
   cj          = cj * (double)(n);
   dj          = dj * (double)(n);
 
-  double asum = 0.0;
-  double bsum = 0.0;
-  double csum = 0.0;
-  double dsum = 0.0;
-  double *a   = vec.a;
-  double *b   = vec.b;
-  double *c   = vec.c;
-  double *d   = vec.d;
+  TBB_FLOAT asum = 0.0;
+  TBB_FLOAT bsum = 0.0;
+  TBB_FLOAT csum = 0.0;
+  TBB_FLOAT dsum = 0.0;
+  TBB_FLOAT *a   = vec.a;
+  TBB_FLOAT *b   = vec.b;
+  TBB_FLOAT *c   = vec.c;
+  TBB_FLOAT *d   = vec.d;
 
   for (size_t i = 0; i < n; i++) {
     asum += a[i];
@@ -204,10 +204,10 @@ void kernelSwitch(
     const VectorsType vec, const size_t N, const size_t iter, const int kernel)
 {
   double scalar = INIT_SCALAR;
-  double *a     = vec.a;
-  double *b     = vec.b;
-  double *c     = vec.c;
-  double *d     = vec.d;
+  TBB_FLOAT *a     = vec.a;
+  TBB_FLOAT *b     = vec.b;
+  TBB_FLOAT *c     = vec.c;
+  TBB_FLOAT *d     = vec.d;
 
   switch (kernel) {
   case INIT:
@@ -284,10 +284,10 @@ size_t findIter(const VectorsType vec, size_t iter, const size_t problemSize)
   const double minTime      = 0.1;
   const double fallbackTime = 0.005;
   const double safetyFactor = 0.9;
-  double *a                 = vec.a;
-  double *b                 = vec.b;
-  double *c                 = vec.c;
-  double *d                 = vec.d;
+  TBB_FLOAT *a                 = vec.a;
+  TBB_FLOAT *b                 = vec.b;
+  TBB_FLOAT *c                 = vec.c;
+  TBB_FLOAT *d                 = vec.d;
 
   while (1) {
     double newtime = striadSeq(a, b, c, d, problemSize, iter);

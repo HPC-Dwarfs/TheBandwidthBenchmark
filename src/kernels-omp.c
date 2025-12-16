@@ -20,8 +20,8 @@
 #define INCREMENT i++
 #endif
 
-static void initConstants(double *, double *, double *, double *, const size_t);
-static void initRandoms(double *, double *, double *, double *, const size_t);
+static void initConstants(TBB_FLOAT *, TBB_FLOAT *, TBB_FLOAT *, TBB_FLOAT *, const size_t);
+static void initRandoms(TBB_FLOAT *, TBB_FLOAT *, TBB_FLOAT *, TBB_FLOAT *, const size_t);
 
 // Adding simd clause because ICX compiler does
 // not vectorise the code due to size_t dataype.
@@ -34,15 +34,15 @@ static void initRandoms(double *, double *, double *, double *, const size_t);
   double end = getTimeStamp();                                                           \
   return end - start;
 
-void allocateArrays(double **a, double **b, double **c, double **d, const size_t N)
+void allocateArrays(TBB_FLOAT **a, TBB_FLOAT **b, TBB_FLOAT **c, TBB_FLOAT **d, const size_t N)
 {
-  *a = (double *)allocate(ARRAY_ALIGNMENT, N * sizeof(double));
-  *b = (double *)allocate(ARRAY_ALIGNMENT, N * sizeof(double));
-  *c = (double *)allocate(ARRAY_ALIGNMENT, N * sizeof(double));
-  *d = (double *)allocate(ARRAY_ALIGNMENT, N * sizeof(double));
+  *a = (TBB_FLOAT *)allocate(ARRAY_ALIGNMENT, N * sizeof(TBB_FLOAT));
+  *b = (TBB_FLOAT *)allocate(ARRAY_ALIGNMENT, N * sizeof(TBB_FLOAT));
+  *c = (TBB_FLOAT *)allocate(ARRAY_ALIGNMENT, N * sizeof(TBB_FLOAT));
+  *d = (TBB_FLOAT *)allocate(ARRAY_ALIGNMENT, N * sizeof(TBB_FLOAT));
 }
 
-void initConstants(double *a, double *b, double *c, double *d, const size_t N)
+void initConstants(TBB_FLOAT *a, TBB_FLOAT *b, TBB_FLOAT *c, TBB_FLOAT *d, const size_t N)
 {
 #pragma omp parallel for schedule(static)
   for (size_t i = 0; i < N; i++) {
@@ -53,7 +53,7 @@ void initConstants(double *a, double *b, double *c, double *d, const size_t N)
   }
 }
 
-void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
+void initRandoms(TBB_FLOAT *a, TBB_FLOAT *b, TBB_FLOAT *c, TBB_FLOAT *d, const size_t N)
 {
   printf("Using random initialization.\n");
 
@@ -63,15 +63,15 @@ void initRandoms(double *a, double *b, double *c, double *d, const size_t N)
 
 #pragma omp for schedule(static)
     for (size_t i = 0; i < N; i++) {
-      a[i] = (double)rand_r(&seed) / RAND_MAX;
-      b[i] = (double)rand_r(&seed) / RAND_MAX;
-      c[i] = (double)rand_r(&seed) / RAND_MAX;
-      d[i] = (double)rand_r(&seed) / RAND_MAX;
+      a[i] = (TBB_FLOAT)rand_r(&seed) / RAND_MAX;
+      b[i] = (TBB_FLOAT)rand_r(&seed) / RAND_MAX;
+      c[i] = (TBB_FLOAT)rand_r(&seed) / RAND_MAX;
+      d[i] = (TBB_FLOAT)rand_r(&seed) / RAND_MAX;
     }
   }
 }
 
-void initArrays(double *a, double *b, double *c, double *d, const size_t N)
+void initArrays(TBB_FLOAT *a, TBB_FLOAT *b, TBB_FLOAT *c, TBB_FLOAT *d, const size_t N)
 {
   if (DataInitVariant == CONSTANT) {
     initConstants(a, b, c, d, N);
@@ -80,7 +80,7 @@ void initArrays(double *a, double *b, double *c, double *d, const size_t N)
   }
 }
 
-double init(double *restrict a, const double scalar, const size_t N)
+double init(TBB_FLOAT *restrict a, const TBB_FLOAT scalar, const size_t N)
 {
 #ifdef AVX512_INTRINSICS
   __m512d vs =
@@ -92,9 +92,9 @@ double init(double *restrict a, const double scalar, const size_t N)
 #endif
 }
 
-double sum(double *restrict a, const size_t N)
+double sum(TBB_FLOAT *restrict a, const size_t N)
 {
-  double sum         = 0.0;
+  TBB_FLOAT sum         = 0.0;
 
   const double start = getTimeStamp();
 #pragma omp parallel for reduction(+ : sum) schedule(static)
@@ -109,7 +109,7 @@ double sum(double *restrict a, const size_t N)
   return end - start;
 }
 
-double update(double *restrict a, const double scalar, const size_t N)
+double update(TBB_FLOAT *restrict a, const TBB_FLOAT scalar, const size_t N)
 {
 #ifdef AVX512_INTRINSICS
   __m512d vs =
@@ -122,7 +122,7 @@ double update(double *restrict a, const double scalar, const size_t N)
 #endif
 }
 
-double copy(double *restrict a, const double *restrict b, const size_t N)
+double copy(TBB_FLOAT *restrict a, const TBB_FLOAT *restrict b, const size_t N)
 {
 #ifdef AVX512_INTRINSICS
   HARNESS(__m512d load = _mm512_load_pd(&b[i]); _mm512_stream_pd(&a[i], load);)
@@ -131,10 +131,10 @@ double copy(double *restrict a, const double *restrict b, const size_t N)
 #endif
 }
 
-double triad(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double scalar,
+double triad(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
+    const TBB_FLOAT scalar,
     const size_t N)
 {
 #ifdef AVX512_INTRINSICS
@@ -149,10 +149,10 @@ double triad(double *restrict a,
 #endif
 }
 
-double striad(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d,
+double striad(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
+    const TBB_FLOAT *restrict d,
     const size_t N)
 {
 #ifdef AVX512_INTRINSICS
@@ -165,7 +165,7 @@ double striad(double *restrict a,
 }
 
 double daxpy(
-    double *restrict a, const double *restrict b, const double scalar, const size_t N)
+    TBB_FLOAT *restrict a, const TBB_FLOAT *restrict b, const TBB_FLOAT scalar, const size_t N)
 {
 #ifdef AVX512_INTRINSICS
   __m512d vs =
@@ -179,9 +179,9 @@ double daxpy(
 #endif
 }
 
-double sdaxpy(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
+double sdaxpy(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
     const size_t N)
 {
 #ifdef AVX512_INTRINSICS

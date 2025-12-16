@@ -22,64 +22,64 @@
   const double E = getTimeStamp();                                                       \
   return E - S;
 
-double initSeq(double *restrict a, const double scalar, const size_t N, const size_t iter)
+double initSeq(TBB_FLOAT *restrict a, const TBB_FLOAT scalar, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = scalar)
 }
 
 double updateSeq(
-    double *restrict a, const double scalar, const size_t N, const size_t iter)
+    TBB_FLOAT *restrict a, const TBB_FLOAT scalar, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = a[i] * scalar)
 }
 
 double copySeq(
-    double *restrict a, const double *restrict b, const size_t N, const size_t iter)
+    TBB_FLOAT *restrict a, const TBB_FLOAT *restrict b, const size_t N, const size_t iter)
 {
   HARNESS(a[i] = b[i])
 }
 
-double triadSeq(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double scalar,
+double triadSeq(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
+    const TBB_FLOAT scalar,
     const size_t N,
     const size_t iter)
 {
   HARNESS(a[i] = b[i] + (scalar * c[i]))
 }
 
-double striadSeq(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
-    const double *restrict d,
+double striadSeq(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
+    const TBB_FLOAT *restrict d,
     const size_t N,
     const size_t iter)
 {
   HARNESS(a[i] = b[i] + (d[i] * c[i]))
 }
 
-double daxpySeq(double *restrict a,
-    const double *restrict b,
-    const double scalar,
+double daxpySeq(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT scalar,
     const size_t N,
     const size_t iter)
 {
   HARNESS(a[i] = a[i] + (scalar * b[i]))
 }
 
-double sdaxpySeq(double *restrict a,
-    const double *restrict b,
-    const double *restrict c,
+double sdaxpySeq(TBB_FLOAT *restrict a,
+    const TBB_FLOAT *restrict b,
+    const TBB_FLOAT *restrict c,
     const size_t N,
     const size_t iter)
 {
   HARNESS(a[i] = a[i] + (b[i] * c[i]))
 }
 
-double sumSeq(double *restrict a, const size_t N, const size_t iter)
+double sumSeq(TBB_FLOAT *restrict a, const size_t N, const size_t iter)
 {
-  double sum         = 0.0;
+  TBB_FLOAT sum         = 0.0;
 
   const double start = getTimeStamp();
   for (size_t j = 0; j < iter; j++) {

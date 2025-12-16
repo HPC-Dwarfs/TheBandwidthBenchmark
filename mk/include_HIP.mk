@@ -1,6 +1,12 @@
 CC   = hipcc
 LD   = $(CC)
 
+ifeq ($(strip $(DATA_TYPE)),SP)
+    DEFINES +=  -DPRECISION=1
+else
+    DEFINES +=  -DPRECISION=2
+endif
+
 # TARGETING SPECIFIC GPU ARCHITECTURES
 # native: Good for local compilation
 # gfx1030: AMD Radeon RX 6900 XT
@@ -17,7 +23,7 @@ VERSION   = --version
 CPUFLAGS  = -O3 -pipe
 CFLAGS    = -O3 $(HIPFLAGS) $(CPUFLAGS)
 LFLAGS    =
-DEFINES   = -D_GNU_SOURCE
+DEFINES   += -D_GNU_SOURCE
 DEFINES   += -D__HIP_PLATFORM_AMD__ -D_HIP
 INCLUDES  = -I/opt/rocm-7.1.1/include/hiprand
 LIBS      =

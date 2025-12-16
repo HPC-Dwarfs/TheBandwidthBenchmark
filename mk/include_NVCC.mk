@@ -1,6 +1,12 @@
 CC   = nvcc
 LD = $(CC)
 
+ifeq ($(strip $(DATA_TYPE)),SP)
+    DEFINES +=  -DPRECISION=1
+else
+    DEFINES +=  -DPRECISION=2
+endif
+
 VERSION   = --version
 # For A100 GPUs, Ampere GA100 arch target
 NVCCFLAGS = -gencode arch=compute_80,code=sm_80
@@ -13,7 +19,7 @@ NVCCFLAGS += -Xcompiler -rdynamic --generate-line-info -Wno-deprecated-gpu-targe
 CPUFLAGS  = -O3 -pipe 
 CFLAGS    = -O3 $(NVCCFLAGS) --compiler-options="$(CPUFLAGS)"
 LFLAGS    = -lcuda
-DEFINES   = -D_GNU_SOURCE
+DEFINES   += -D_GNU_SOURCE
 DEFINES   += -D_NVCC
 INCLUDES  =
 LIBS      =

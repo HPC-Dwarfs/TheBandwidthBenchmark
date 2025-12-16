@@ -15,7 +15,7 @@
 #define cudaDeviceSynchronize hipDeviceSynchronize
 #define cudaDeviceProp hipDeviceProp_t
 #define cudaGetDeviceProperties hipGetDeviceProperties
-#define cudaOccupancyMaxActiveBlocksPerMultiprocessor                          \
+#define cudaOccupancyMaxActiveBlocksPerMultiprocessor                                    \
   hipOccupancyMaxActiveBlocksPerMultiprocessor
 
 #define curandState hiprandState

@@ -31,6 +31,16 @@
 #define ABS(a) ((a) >= 0 ? (a) : -(a))
 #endif
 
+#if PRECISION == 1
+#define TBB_FLOAT float
+#define TBB_FLOAT2 float2
+#define TBB_FLOAT4 float4
+#else
+#define TBB_FLOAT double
+#define TBB_FLOAT2 double2
+#define TBB_FLOAT4 double4
+#endif
+
 #define DEBUG_MESSAGE debug_printf
 #define FPRINTF(...)                                                                     \
   if (fprintf(__VA_ARGS__) < 0) {                                                        \
