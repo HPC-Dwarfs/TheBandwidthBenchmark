@@ -7,6 +7,7 @@
 extern "C" {
 #include "cli.h"
 #include "constants.h"
+#include "kernels.h"
 #include "profiler.h"
 #include "timing.h"
 #include "util.h"
@@ -119,19 +120,98 @@ double gpuSweepL1Kernel(TBB_FLOAT *a, TBB_FLOAT *b,
   return end - start;
 }
 
-/**
- * @brief Run GPU memory hierarchy sweeps
- *
- * Sweeps over increasing problem sizes with constant thread block size.
- */
-void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
+static void gpuKernelSwitch(
+    const VectorsType vec, const size_t N, const size_t iter, const int kernel)
 {
-  printf(HLINE);
-  printf("Running GPU memory hierarchy sweeps\n");
-  printf("Using %d repetitions per measurement.\n", INCACHE_REPS);
+  double scalar = INIT_SCALAR;
+  TBB_FLOAT *a     = vec.a;
+  TBB_FLOAT *b     = vec.b;
+  TBB_FLOAT *c     = vec.c;
+  TBB_FLOAT *d     = vec.d;
 
+  for (int k = 0; k < iter; k++) {
+    switch (kernel) {
+    case INIT:
+      Timings[INIT][k] = init(b, scalar, N);
+      break;
+    case SUM:
+      Timings[SUM][k] = sum(a, N);
+      break;
+    case COPY:
+      Timings[COPY][k] = copy(c, a, N);
+      break;
+    case UPDATE:
+      Timings[UPDATE][k] = update(a, scalar, N);
+      break;
+    case TRIAD:
+      Timings[TRIAD][k] = triad(a, b, c, scalar, N);
+      break;
+    case DAXPY:
+      Timings[DAXPY][k] = daxpy(a, b, scalar, N);
+      break;
+    case STRIAD:
+      Timings[STRIAD][k] = striad(a, b, c, d, N);
+      break;
+    case SDAXPY:
+      Timings[SDAXPY][k] = sdaxpy(a, b, c, N);
+      break;
+    default:;
+    }
+  }
+}
+
+static void runGPUL2Sweep()
+{
+  printf("GPU L2 sweep mode is reserved.\n");
+  exit(EXIT_SUCCESS);
+}
+
+static void runGPUSweep(VectorsType vec, const size_t N)
+{
+  Iterations = GPU_INCACHE_REPS;
+
+  cudaDeviceProp prop;
+  int deviceId;
+  GPU_ERROR(cudaGetDevice(&deviceId));
+  GPU_ERROR(cudaGetDeviceProperties(&prop, deviceId));
+
+  int maxThreadsPerBlock = prop.maxThreadsPerBlock;
+  int maxThreadsPerSM = prop.maxThreadsPerMultiProcessor;
+  int maxBlocksPerSM = prop.maxBlocksPerMultiProcessor;
+
+  allocateTimer();
+
+  for (int kernel = 0; kernel < NUMREGIONS; kernel++) {
+    gpuProfilerOpenFileRegion(kernel);
+    
+    THREAD_BLOCK_SIZE_SET = 1;
+    THREAD_BLOCK_PER_SM_SET= 1;
+
+    for (int tb_size = 64; tb_size <= maxThreadsPerBlock; tb_size += 64) {
+      for (int tb_per_sm = 1; tb_per_sm <= maxBlocksPerSM; tb_per_sm++) {
+        if (tb_size * tb_per_sm > maxThreadsPerSM) {
+          continue;
+        }
+
+        THREAD_BLOCK_SIZE     = tb_size;
+        THREAD_BLOCK_PER_SM   = tb_per_sm;
+
+        gpuKernelSwitch(vec, N, Iterations, kernel);
+
+        gpuProfilerPrintLineRegion(N, Iterations, tb_size, tb_per_sm, kernel);
+      }
+    }
+    gpuProfilerCloseFile();
+  }
+
+  freeTimer();
+  exit(EXIT_SUCCESS);
+}
+
+static void runGPUL1Sweep(VectorsType vec, const size_t N)
+{
   int threadBlockSize = GPU_SWEEP_BLOCKSIZE;
-  Iterations = INCACHE_REPS;
+  Iterations = GPU_INCACHE_REPS;
   
   cudaDeviceProp prop;
   int deviceId;
@@ -145,7 +225,7 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
 
   allocateTimer();
 
-  gpuProfilerOpenFile("l1");
+  gpuProfilerOpenFile("L1");
 
 #define GENERATE_ARRAY_ELEMENT(SIZE) SIZE,
   const size_t sweepSizes[] = {
@@ -169,7 +249,7 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
 
     const int iter = 1000000000 / problemSize + 2;
 
-    /* Run the kernel INCACHE_REPS times and record timings */
+    /* Run the kernel GPU_INCACHE_REPS times and record timings */
     for (int k = 0; k < (int)Iterations; k++) {
       Timings[0][k] = gpuSweepL1Kernel(vec.a, vec.b, problemSize,
                                       iter, numThreadBlocks);
@@ -181,6 +261,27 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
   gpuProfilerCloseFile();
   freeTimer();
   exit(EXIT_SUCCESS);
+}
+
+/**
+ * @brief Run GPU memory hierarchy sweeps
+ *
+ * Sweeps over increasing problem sizes with constant thread block size.
+ */
+void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
+{
+  printf(HLINE);
+  printf("Running GPU sweeps\n");
+  printf("Using %d repetitions per measurement.\n", GPU_INCACHE_REPS);
+  printf(HLINE);
+
+  if (GPUBenchmarkType == GPU_L2) {
+    runGPUL2Sweep();
+  } else if (GPUBenchmarkType == GPU_SWEEP) {
+    runGPUSweep(vec, N);
+  } else if (GPUBenchmarkType == GPU_L1) {
+    runGPUL1Sweep(vec, N);
+  }
 }
 
 } /* extern "C" */

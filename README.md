@@ -221,7 +221,7 @@ To run the benchmark call:
 | Option | Argument     | Description                                                                                                                 |
 | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `-h`   | —            | Show help text.                                                                                                             |
-| `-m`   | `<type>`     | _(CPU only)_ Benchmark type. Valid values:<br>• `ws` — Worksharing (default)<br>• `tp` — Throughput<br>• `seq` — Sequential |
+| `-m`   | `<type>`     | _(CPU only)_ Benchmark type. Valid values:<br>• `ws` — Worksharing (default)<br>• `tp` — Throughput<br>• `seq` — Sequential<br>  _(GPU only)_ Benchmark type. Valid values:<br>• `l1` — L1 cache<br>• `l2` — L2 cache<br>• `sweep` — Sweep with different thread block sizes and thread blocks per SM<br>  |
 | `-s`   | `<long int>` | Size (in GB) of the allocated vectors.                                                                                      |
 | `-n`   | `<long int>` | Number of iterations.                                                                                                       |
 | `-i`   | `<type>`     | Data initialization type. Valid values:<br>• `constant` (default) <br>• `random`                                            |
@@ -234,7 +234,7 @@ benchmark. Results are validated.
 
 ---
 
-### Sequential vs Throughput mode: Sweeping over a range of problem size
+### (CPU only) Sequential vs Throughput mode: Sweeping over a range of problem size
 
 Apart from the default parallel work sharing mode with fixed problem size
 TheBandwidthBenchmark also supports two modes with varying problem sizes:

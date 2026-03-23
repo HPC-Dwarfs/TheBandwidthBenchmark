@@ -230,39 +230,24 @@ void gpuProfilerOpenFile(const char *label)
       "# N  DatasetSize(MB)  Rate(GB/s)  ThreadBlockSize  NumThreadBlocks"
       "  Avg_time(s)  Min_time(s)  Max_time(s)\n");
 
-  printf("Running GPU kernel %s\n", label);
+  printf("Measuring %s bandwidth on GPU\n", label);
 }
 
 void gpuProfilerPrintLine(const size_t N, const int iter,
     const int threadBlockSize, const int numThreadBlocks)
 {
-  double avgtime = 0;
-  double maxtime = 0;
-  double mintime = 1e30;
+  double avgtime;
+  double maxtime;
+  double mintime;
 
-  for (int k = 1; k < (int)Iterations; k++) {
-    avgtime += Timings[0][k];
-    mintime = MIN(mintime, Timings[0][k]);
-    maxtime = MAX(maxtime, Timings[0][k]);
-  }
-  avgtime /= (double)(Iterations - 1);
+  computeStats(&avgtime, &maxtime, &mintime, 0);
 
   /* 2 arrays read of N elements each per iteration */
   double bytes = 2.0 * sizeof(TBB_FLOAT) * (double)N * (double)iter * (double)numThreadBlocks;
   double dataset = 2.0 * sizeof(TBB_FLOAT) * (double)N;
 
   FPRINTF(ProfilerFile,
-      "%lu %11.5f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
-      N,
-      MILLIONTH * dataset,
-      BILLIONTH * bytes / mintime,
-      threadBlockSize,
-      numThreadBlocks,
-      avgtime,
-      mintime,
-      maxtime);
-
-  printf("%lu %11.5f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
+      "%lu %11.2f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
       N,
       MILLIONTH * dataset,
       BILLIONTH * bytes / mintime,
@@ -280,6 +265,69 @@ void gpuProfilerCloseFile(void)
       perror("Error closing GPU profiler file");
     }
     ProfilerFile = NULL;
+  }
+}
+
+void gpuProfilerOpenFileRegion(int region)
+{
+  char filename[MAXSTRLEN];
+  sprintf(filename, "%s/%s.dat", DataDirectory, Regions[region].label);
+  ProfilerFile = fopen(filename, "w");
+  if (ProfilerFile == NULL) {
+    perror("Error opening GPU profiler file");
+    exit(EXIT_FAILURE);
+  }
+  
+  if (Regions[region].flops == 0) {
+    FPRINTF(ProfilerFile, "# GPU Sweep: %s\n", Regions[region].label);
+    FPRINTF(ProfilerFile,
+        "# N  DatasetSize(MB)  Rate(GB/s)  ThreadBlockSize  NumThreadBlocks"
+        "  Avg_time(s)  Min_time(s)  Max_time(s)\n");
+  } else {
+    FPRINTF(ProfilerFile, "# GPU Sweep: %s\n", Regions[region].label);
+    FPRINTF(ProfilerFile,
+        "# N  DatasetSize(MB)  Rate(GB/s)  Rate(GFlop/s)  ThreadBlockSize  NumThreadBlocks"
+        "  Avg_time(s)  Min_time(s)  Max_time(s)\n");
+  }
+
+  printf("Measuring GPU kernel %s\n", Regions[region].label);
+}
+
+void gpuProfilerPrintLineRegion(const size_t N, const int iter,
+    const int threadBlockSize, const int numThreadBlocks, int region)
+{
+  double avgtime;
+  double maxtime;
+  double mintime;
+
+  computeStats(&avgtime, &maxtime, &mintime, region);
+
+  double bytes = (double)Regions[region].words * sizeof(TBB_FLOAT) * (double)N;
+  double flops = (double)Regions[region].flops * (double)N;
+
+  if (Regions[region].flops == 0) {
+    FPRINTF(ProfilerFile,
+        "%lu %11.2f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
+        N,
+        MILLIONTH * bytes,
+        BILLIONTH * bytes / mintime,
+        threadBlockSize,
+        numThreadBlocks,
+        avgtime,
+        mintime,
+        maxtime);
+  } else {
+    FPRINTF(ProfilerFile,
+        "%lu %11.2f %11.2f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
+        N,
+        MILLIONTH * bytes,
+        BILLIONTH * bytes / mintime,
+        BILLIONTH * flops / mintime,
+        threadBlockSize,
+        numThreadBlocks,
+        avgtime,
+        mintime,
+        maxtime);
   }
 }
 #endif

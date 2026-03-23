@@ -793,11 +793,13 @@ void setBlockSize()
   double occupancy = (((double)THREAD_BLOCK_SIZE * (double)THREAD_BLOCK_PER_SM) /
                          (double)maxThreadsPerSM) *
                      100;
-
-  printf(HLINE);
-  printf("Thread Block Size: \t %d\n", THREAD_BLOCK_SIZE);
-  printf("Thread Block Per SM: \t %d\n", THREAD_BLOCK_PER_SM);
-  printf("Occupancy: \t\t %.2f %% \n", occupancy);
+  if(GPUBenchmarkType == GPU_WS) {
+    printf(HLINE);
+    printf("Thread Block Size: \t %d\n", THREAD_BLOCK_SIZE);
+    printf("Thread Block Per SM: \t %d\n", THREAD_BLOCK_PER_SM);
+    printf("Occupancy: \t\t %.2f %% \n", occupancy);
+  }
+  
 }
 
 int getSharedMemSize(int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void *func)
