@@ -23,16 +23,16 @@ static void setBlockSize(void);
 #define VECTORIZED_VERSION_DISPATCH(KERNEL, THPBLKS, ...)                                \
   switch (VEC_VARIANT) {                                                                 \
   case VEC0: {                                                                           \
-    HARNESS((KERNEL<<<N / THPBLKS + 1, THPBLKS, 0>>>(__VA_ARGS__)), KERNEL)              \
+    HARNESS((KERNEL<<<N / THPBLKS + 1, THPBLKS, shared_mem_size>>>(__VA_ARGS__)), KERNEL)              \
     break;                                                                               \
   }                                                                                      \
   case VEC2: {                                                                           \
-    HARNESS((KERNEL##_vec2<<<(N / 2) / THPBLKS + 1, THPBLKS, 0>>>(__VA_ARGS__)),         \
+    HARNESS((KERNEL##_vec2<<<(N / 2) / THPBLKS + 1, THPBLKS, shared_mem_size>>>(__VA_ARGS__)),         \
         KERNEL##_vec2)                                                                   \
     break;                                                                               \
   }                                                                                      \
   case VEC4: {                                                                           \
-    HARNESS((KERNEL##_vec4<<<(N / 4) / THPBLKS + 1, THPBLKS, 0>>>(__VA_ARGS__)),         \
+    HARNESS((KERNEL##_vec4<<<(N / 4) / THPBLKS + 1, THPBLKS, shared_mem_size>>>(__VA_ARGS__)),         \
         KERNEL##_vec4)                                                                   \
     break;                                                                               \
   }                                                                                      \
@@ -624,6 +624,7 @@ __global__ void sumCudaGeneric(
   GPU_ERROR(cudaFree(0));                                                                \
   double S = getTimeStamp();                                                             \
   kernel;                                                                                \
+  GPU_ERROR(cudaGetLastError());                                                         \
   GPU_ERROR(cudaDeviceSynchronize());                                                    \
   double E = getTimeStamp();                                                             \
   return E - S;
@@ -775,18 +776,19 @@ void setBlockSize()
   // better performance and thread occupancy.
   if (THREAD_BLOCK_SIZE_SET == 0) {
     THREAD_BLOCK_SIZE = prop.maxThreadsPerMultiProcessor / 2;
+#ifdef THREADBLOCKSIZE
+    THREAD_BLOCK_SIZE = THREADBLOCKSIZE;
+#endif
   }
 
-#ifdef THREADBLOCKSIZE
-  THREAD_BLOCK_SIZE = THREADBLOCKSIZE;
+  if (THREAD_BLOCK_PER_SM_SET == 0) {
+#ifdef THREADBLOCKPERSM
+    THREAD_BLOCK_PER_SM = THREADBLOCKPERSM;
 #endif
+  }
 
   THREAD_BLOCK_PER_SM =
       MIN(floor(maxThreadsPerSM / THREAD_BLOCK_SIZE), THREAD_BLOCK_PER_SM);
-
-#ifdef THREADBLOCKPERSM
-  THREAD_BLOCK_PER_SM = MIN(THREAD_BLOCK_PER_SM, THREADBLOCKPERSM);
-#endif
 
   double occupancy = (((double)THREAD_BLOCK_SIZE * (double)THREAD_BLOCK_PER_SM) /
                          (double)maxThreadsPerSM) *
@@ -800,22 +802,39 @@ void setBlockSize()
 
 int getSharedMemSize(int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void *func)
 {
-
-#ifdef THREADBLOCKPERSM
   int max_active_thread_blocks = 0;
-  int shared_mem_size          = 1024;
+  
+  GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &max_active_thread_blocks, func, THREAD_BLOCK_SIZE, 1));
+      
+  if (max_active_thread_blocks <= thread_blocks_per_sm) {
+    return 1;
+  }
+
+  int shared_mem_size = 1024;
+  cudaError_t err = cudaFuncSetAttribute(func, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size);
+  if (err != cudaSuccess) {
+    cudaGetLastError(); // clear error state
+    return 1; // hardware doesn't support this, can't limit occupancy
+  }
 
   GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
       &max_active_thread_blocks, func, THREAD_BLOCK_SIZE, shared_mem_size));
 
   while (max_active_thread_blocks > thread_blocks_per_sm) {
     shared_mem_size += 256;
+    err = cudaFuncSetAttribute(func, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size);
+    if (err != cudaSuccess) {
+      cudaGetLastError(); // clear error state
+      shared_mem_size -= 256; // revert to the highest successful size
+      break;
+    }
     GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &max_active_thread_blocks, func, THREAD_BLOCK_SIZE, shared_mem_size));
   }
+  
+  // Re-assert final successful size limits before return
+  cudaFuncSetAttribute(func, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size);
   return shared_mem_size;
-#else
-  return 1;
-#endif
 }
 }
