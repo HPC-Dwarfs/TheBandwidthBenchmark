@@ -21,17 +21,14 @@
 #include "profiler.h"
 #include "util.h"
 
-typedef struct {
-  TBB_FLOAT *a;
-  TBB_FLOAT *b;
-  TBB_FLOAT *c;
-  TBB_FLOAT *d;
-} VectorsType;
-
 static void check(VectorsType vec, size_t N, size_t iter);
 static size_t findIter(VectorsType vec, size_t iter, size_t problemSize);
 static void kernelSwitch(VectorsType vec, size_t N, size_t iter, int kernel);
 static void runMemoryHierarchySweeps(VectorsType vec, size_t N);
+
+#if defined(_NVCC) || defined(_HIP)
+extern void runGPUMemoryHierarchySweeps(VectorsType vec, size_t N);
+#endif
 
 int main(const int argc, char **argv)
 {
@@ -84,6 +81,11 @@ int main(const int argc, char **argv)
 #if !defined(_NVCC) && !defined(_HIP)
   if (BenchmarkType == TP || BenchmarkType == SQ) {
     runMemoryHierarchySweeps(vec, N);
+  }
+#else
+  if (GPUBenchmarkType == GPU_L1 || GPUBenchmarkType == GPU_L2 ||
+      GPUBenchmarkType == GPU_SWEEP) {
+    runGPUMemoryHierarchySweeps(vec, N);
   }
 #endif
 

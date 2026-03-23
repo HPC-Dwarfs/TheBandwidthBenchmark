@@ -1,5 +1,5 @@
 # Supported: GCC, CLANG, ICX, NVCC, HIP
-TOOLCHAIN ?= GCC
+TOOLCHAIN ?= NVCC
 # Supported: true or false
 ENABLE_OPENMP ?= true
 # Supported: true or false

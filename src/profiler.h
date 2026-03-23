@@ -6,6 +6,8 @@
 #define __PROFILER_H_
 #include <stddef.h>
 
+#include "util.h"
+
 #ifdef _OPENMP
 #include "likwid-marker.h"
 
@@ -43,5 +45,11 @@ extern void profilerPrint(size_t N);
 extern void profilerOpenFile(int region);
 extern void profilerCloseFile(void);
 extern void profilerPrintLine(size_t N, size_t iter, int kernel);
+
+#if defined(_NVCC) || defined(_HIP)
+extern void gpuProfilerOpenFile(const char *label);
+extern void gpuProfilerPrintLine(size_t N, int iter, int threadBlockSize, int numThreadBlocks);
+extern void gpuProfilerCloseFile(void);
+#endif
 
 #endif // __PROFILER_H

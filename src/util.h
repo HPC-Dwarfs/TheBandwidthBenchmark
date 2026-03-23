@@ -41,6 +41,13 @@
 #define TBB_FLOAT4 double4
 #endif
 
+typedef struct {
+  TBB_FLOAT *a;
+  TBB_FLOAT *b;
+  TBB_FLOAT *c;
+  TBB_FLOAT *d;
+} VectorsType;
+
 #define DEBUG_MESSAGE debug_printf
 #define FPRINTF(...)                                                                     \
   if (fprintf(__VA_ARGS__) < 0) {                                                        \

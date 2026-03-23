@@ -8,7 +8,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#if !defined(_NVCC) && !defined(_HIP)
 typedef enum { WS = 0, TP, SQ, NUMTYPES } ModeType;
+#else
+typedef enum { GPU_WS = 0, GPU_L1, GPU_L2, GPU_SWEEP, GPU_NUMTYPES } GPUModeType;
+#endif
+
 typedef enum { CONSTANT = 0, RANDOM } InitType;
 typedef enum { VEC0 = 0, VEC2, VEC4} VectorizedDataTransferType;
 
@@ -16,7 +21,7 @@ typedef enum { VEC0 = 0, VEC2, VEC4} VectorizedDataTransferType;
   "Usage: bwBench [options]\n\n"                                                         \
   "Options:\n"                                                                           \
   "  -h              Show this help text\n"                                              \
-  "  -m <type>       Benchmark type, can be ws (default), tp, or seq.\n"                 \
+  "  -m <type>       Benchmark type: ws (default), tp, seq (CPU); l1, l2, sweep (GPU)\n"\
   "  -s <long int>   Size in GB for allocated vectors\n"                                 \
   "  -n <long int>   Number of iterations\n"                                             \
   "  -i <type>       Data initialization type, can be constant, or random\n"             \
@@ -27,6 +32,10 @@ extern bool Sequential;
 extern size_t N;
 extern size_t Iterations;
 extern int DataInitVariant;
+
+#if defined(_NVCC) || defined(_HIP)
+extern int GPUBenchmarkType;
+#endif
 
 #if defined(_NVCC) || defined(_HIP)
 extern int CUDA_DEVICE;

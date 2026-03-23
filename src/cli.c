@@ -13,7 +13,12 @@
 #include "constants.h"
 #include "util.h"
 
+#if !defined(_NVCC) && !defined(_HIP)
 int BenchmarkType   = WS;
+#else
+int BenchmarkType   = GPU_WS;
+int GPUBenchmarkType = GPU_WS;
+#endif
 bool Sequential     = false;
 int DataInitVariant = CONSTANT;
 size_t N            = SIZE;
@@ -42,6 +47,7 @@ void parseArguments(int argc, char **argv)
     }
 
     case 'm': {
+#if !defined(_NVCC) && !defined(_HIP)
       if (strcmp(optarg, "ws") == 0) {
         BenchmarkType = WS;
       } else if (strcmp(optarg, "tp") == 0) {
@@ -54,6 +60,20 @@ void parseArguments(int argc, char **argv)
         printf("Unknown bench type %s\n", optarg);
         exit(EXIT_FAILURE);
       }
+#else
+      if (strcmp(optarg, "ws") == 0) {
+        GPUBenchmarkType = GPU_WS;
+      } else if (strcmp(optarg, "l1") == 0) {
+        GPUBenchmarkType = GPU_L1;
+      } else if (strcmp(optarg, "l2") == 0) {
+        GPUBenchmarkType = GPU_L2;
+      } else if (strcmp(optarg, "sweep") == 0) {
+        GPUBenchmarkType = GPU_SWEEP;
+      } else {
+        printf("Unknown GPU bench type %s. Use: ws, l1, l2, sweep\n", optarg);
+        exit(EXIT_FAILURE);
+      }
+#endif
       break;
     }
 

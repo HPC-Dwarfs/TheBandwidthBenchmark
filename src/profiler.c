@@ -213,3 +213,73 @@ void profilerPrint(const size_t N)
 
   LIKWID_MARKER_CLOSE;
 }
+
+#if defined(_NVCC) || defined(_HIP)
+void gpuProfilerOpenFile(const char *label)
+{
+  char filename[MAXSTRLEN];
+  sprintf(filename, "%s/%s.dat", DataDirectory, label);
+  ProfilerFile = fopen(filename, "w");
+  if (ProfilerFile == NULL) {
+    perror("Error opening GPU profiler file");
+    exit(EXIT_FAILURE);
+  }
+  FPRINTF(ProfilerFile,
+      "# GPU Sweep: %s\n", label);
+  FPRINTF(ProfilerFile,
+      "# N  DatasetSize(MB)  Rate(GB/s)  ThreadBlockSize  NumThreadBlocks"
+      "  Avg_time(s)  Min_time(s)  Max_time(s)\n");
+
+  printf("Running GPU kernel %s\n", label);
+}
+
+void gpuProfilerPrintLine(const size_t N, const int iter,
+    const int threadBlockSize, const int numThreadBlocks)
+{
+  double avgtime = 0;
+  double maxtime = 0;
+  double mintime = 1e30;
+
+  for (int k = 1; k < (int)Iterations; k++) {
+    avgtime += Timings[0][k];
+    mintime = MIN(mintime, Timings[0][k]);
+    maxtime = MAX(maxtime, Timings[0][k]);
+  }
+  avgtime /= (double)(Iterations - 1);
+
+  /* 2 arrays read of N elements each per iteration */
+  double bytes = 2.0 * sizeof(TBB_FLOAT) * (double)N * (double)iter * (double)numThreadBlocks;
+  double dataset = 2.0 * sizeof(TBB_FLOAT) * (double)N;
+
+  FPRINTF(ProfilerFile,
+      "%lu %11.5f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
+      N,
+      MILLIONTH * dataset,
+      BILLIONTH * bytes / mintime,
+      threadBlockSize,
+      numThreadBlocks,
+      avgtime,
+      mintime,
+      maxtime);
+
+  printf("%lu %11.5f %11.2f %15d %15d %12.6f  %12.6f  %12.6f\n",
+      N,
+      MILLIONTH * dataset,
+      BILLIONTH * bytes / mintime,
+      threadBlockSize,
+      numThreadBlocks,
+      avgtime,
+      mintime,
+      maxtime);
+}
+
+void gpuProfilerCloseFile(void)
+{
+  if (ProfilerFile != NULL) {
+    if (fclose(ProfilerFile) != 0) {
+      perror("Error closing GPU profiler file");
+    }
+    ProfilerFile = NULL;
+  }
+}
+#endif
