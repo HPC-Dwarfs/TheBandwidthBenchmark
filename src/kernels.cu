@@ -518,42 +518,100 @@ __global__ void sdaxpyCuda_vec4(TBB_FLOAT *__restrict__ a,
   }
 }
 
-__device__ void warpReduce(volatile int *shared_data, size_t tidx)
+template <unsigned int blockSize>
+__device__ void warpReduce(volatile TBB_FLOAT *shared_data, size_t tidx)
 {
-  shared_data[tidx] += shared_data[tidx + 32];
-  shared_data[tidx] += shared_data[tidx + 16];
-  shared_data[tidx] += shared_data[tidx + 8];
-  shared_data[tidx] += shared_data[tidx + 4];
-  shared_data[tidx] += shared_data[tidx + 2];
-  shared_data[tidx] += shared_data[tidx + 1];
+  if (blockSize >= 64) shared_data[tidx] += shared_data[tidx + 32];
+  if (blockSize >= 32) shared_data[tidx] += shared_data[tidx + 16];
+  if (blockSize >= 16) shared_data[tidx] += shared_data[tidx + 8];
+  if (blockSize >= 8)  shared_data[tidx] += shared_data[tidx + 4];
+  if (blockSize >= 4)  shared_data[tidx] += shared_data[tidx + 2];
+  if (blockSize >= 2)  shared_data[tidx] += shared_data[tidx + 1];
 }
 
 // Inspired by the
 // https://developer.download.nvidia.com/assets/cuda/files/reduction.pdf
+// REDUCTION 6 – Multiple Adds / Threads
+template <unsigned int blockSize>
 __global__ void sumCuda(
     TBB_FLOAT *__restrict__ a, TBB_FLOAT *__restrict__ a_out, const size_t N)
 {
-  extern __shared__ int shared_data[];
+  extern __shared__ TBB_FLOAT shared_data[];
 
   size_t tidx       = threadIdx.x;
-  size_t i          = blockIdx.x * (blockDim.x * 2) + threadIdx.x;
-  shared_data[tidx] = a[i] + a[i + blockDim.x];
+  size_t i          = blockIdx.x * (blockSize * 2) + tidx;
+  size_t gridSize   = blockDim.x * 2 * gridDim.x;
+  
+  shared_data[tidx] = 0;
+
+  while (i < N) {
+    shared_data[tidx] += a[i] + a[i + blockSize];
+    i += gridSize;
+  }
   __syncthreads();
 
-  for (int s = blockDim.x / 2; s > 32; s >>= 1) {
-
-    if (tidx < s) {
-      shared_data[tidx] += shared_data[tidx + s];
-    }
+  if (blockSize >= 1024) {
+    if (tidx < 512) { shared_data[tidx] += shared_data[tidx + 512]; }
+    __syncthreads();
+  }
+  if (blockSize >= 512) {
+    if (tidx < 256) { shared_data[tidx] += shared_data[tidx + 256]; }
+    __syncthreads();
+  }
+  if (blockSize >= 256) {
+    if (tidx < 128) { shared_data[tidx] += shared_data[tidx + 128]; }
+    __syncthreads();
+  }
+  if (blockSize >= 128) {
+    if (tidx < 64) { shared_data[tidx] += shared_data[tidx + 64]; }
+    __syncthreads();
+  }
+  if (blockSize >= 64) {
+    if (tidx < 32) { shared_data[tidx] += shared_data[tidx + 32]; }
     __syncthreads();
   }
 
   if (tidx < 32) {
-    warpReduce(shared_data, tidx);
+    warpReduce<blockSize>(shared_data, tidx);
   }
 
   if (tidx == 0) {
-    a[blockIdx.x] = shared_data[0];
+    a_out[blockIdx.x] = shared_data[0];
+  }
+}
+
+__global__ void sumCudaGeneric(
+    TBB_FLOAT *__restrict__ a, TBB_FLOAT *__restrict__ a_out, const size_t N)
+{
+  extern __shared__ TBB_FLOAT shared_data[];
+
+  size_t tidx       = threadIdx.x;
+  size_t i          = blockIdx.x * (blockDim.x * 2) + tidx;
+  size_t gridSize   = blockDim.x * 2 * gridDim.x;
+  
+  TBB_FLOAT sum = 0;
+
+  while (i < N) {
+    sum += a[i];
+    if (i + blockDim.x < N) {
+      sum += a[i + blockDim.x];
+    }
+    i += gridSize;
+  }
+  shared_data[tidx] = sum;
+  __syncthreads();
+
+  for (unsigned int s = blockDim.x; s > 1; ) {
+    unsigned int half = (s + 1) / 2;
+    if (tidx < s / 2) {
+      shared_data[tidx] += shared_data[tidx + half];
+    }
+    s = half;
+    __syncthreads();
+  }
+
+  if (tidx == 0) {
+    a_out[blockIdx.x] = shared_data[0];
   }
 }
 
@@ -669,9 +727,31 @@ double sum(TBB_FLOAT *__restrict__ a, const size_t N)
 
   double start = getTimeStamp();
 
-  sumCuda<<<N / (THREAD_BLOCK_SIZE * 2) + 1,
-      THREAD_BLOCK_SIZE,
-      THREAD_BLOCK_SIZE * sizeof(TBB_FLOAT)>>>(a, al, N);
+  size_t num_blocks = N / (THREAD_BLOCK_SIZE * 2) + 1;
+
+  switch (THREAD_BLOCK_SIZE) {
+    case 1024:
+      sumCuda<1024><<<num_blocks, 1024, 1024 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    case 512:
+      sumCuda<512><<<num_blocks, 512, 512 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    case 256:
+      sumCuda<256><<<num_blocks, 256, 256 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    case 128:
+      sumCuda<128><<<num_blocks, 128, 128 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    case 64:
+      sumCuda<64><<<num_blocks, 64, 64 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    case 32:
+      sumCuda<32><<<num_blocks, 32, 32 * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+    default:
+      sumCudaGeneric<<<num_blocks, THREAD_BLOCK_SIZE, THREAD_BLOCK_SIZE * sizeof(TBB_FLOAT)>>>(a, al, N);
+      break;
+  }
 
   GPU_ERROR(cudaDeviceSynchronize());
 

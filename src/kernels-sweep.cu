@@ -140,7 +140,7 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
   int smCount = prop.multiProcessorCount;
   int maxActiveBlocks = 0;
   GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &maxActiveBlocks, sumKernel<GPU_SWEEP_BLOCKSIZE, 1000, GPU_SWEEP_BLOCKSIZE>, threadBlockSize, 0));
+      &maxActiveBlocks, l1Kernel<GPU_SWEEP_BLOCKSIZE, 1000, GPU_SWEEP_BLOCKSIZE>, threadBlockSize, 0));
   int numThreadBlocks = smCount * 1;
 
   allocateTimer();
@@ -171,7 +171,7 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
 
     /* Run the kernel INCACHE_REPS times and record timings */
     for (int k = 0; k < (int)Iterations; k++) {
-      Timings[0][k] = gpuSweepKernel(vec.a, vec.b, problemSize,
+      Timings[0][k] = gpuSweepL1Kernel(vec.a, vec.b, problemSize,
                                       iter, numThreadBlocks);
     }
 
