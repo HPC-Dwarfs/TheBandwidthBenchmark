@@ -208,19 +208,28 @@ static void runGPUSweep(VectorsType vec, const size_t N)
   exit(EXIT_SUCCESS);
 }
 
+static int getSMCount() {
+  cudaDeviceProp prop;
+  int deviceId;
+  GPU_ERROR(cudaGetDevice(&deviceId));
+  GPU_ERROR(cudaGetDeviceProperties(&prop, deviceId));
+  return prop.multiProcessorCount;
+}
+
+static int getOccupancyMaxActiveBlocks(int threadBlockSize) {
+  int maxActiveBlocks = 0;
+  GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+      &maxActiveBlocks, l1Kernel<GPU_SWEEP_BLOCKSIZE, 1000, GPU_SWEEP_BLOCKSIZE>, threadBlockSize, 0));
+  return maxActiveBlocks;
+}
+
 static void runGPUL1Sweep(VectorsType vec, const size_t N)
 {
   int threadBlockSize = GPU_SWEEP_BLOCKSIZE;
   Iterations = GPU_INCACHE_REPS;
   
-  cudaDeviceProp prop;
-  int deviceId;
-  GPU_ERROR(cudaGetDevice(&deviceId));
-  GPU_ERROR(cudaGetDeviceProperties(&prop, deviceId));
-  int smCount = prop.multiProcessorCount;
-  int maxActiveBlocks = 0;
-  GPU_ERROR(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &maxActiveBlocks, l1Kernel<GPU_SWEEP_BLOCKSIZE, 1000, GPU_SWEEP_BLOCKSIZE>, threadBlockSize, 0));
+  int smCount = getSMCount();
+  int maxActiveBlocks = getOccupancyMaxActiveBlocks(threadBlockSize);
   int numThreadBlocks = smCount * 1;
 
   allocateTimer();
@@ -235,24 +244,29 @@ static void runGPUL1Sweep(VectorsType vec, const size_t N)
   const size_t numSweepSizes = sizeof(sweepSizes) / sizeof(sweepSizes[0]);
 
   for (size_t i = 0; i < numSweepSizes; i++) {
+
     size_t problemSize = sweepSizes[i];
+
+    size_t newN = 2 * problemSize + i * 2048;
+    reinitSweepBuffers(&vec.a, &vec.b, newN);
 
     /* Skip sizes smaller than the thread block size */
     if (problemSize < (size_t)threadBlockSize) {
       continue;
     }
 
-    /* Sweep while 2*problemSize <= N to ensure b2 = b + N inside kernel is in bounds */
-    if (problemSize * 2 > N) {
-      break;
-    }
-
     const int iter = 1000000000 / problemSize + 2;
 
     /* Run the kernel GPU_INCACHE_REPS times and record timings */
     for (int k = 0; k < (int)Iterations; k++) {
+      vec.a += k;
+      vec.b += k;
+
       Timings[0][k] = gpuSweepL1Kernel(vec.a, vec.b, problemSize,
                                       iter, numThreadBlocks);
+    
+      vec.a -= k;
+      vec.b -= k;
     }
 
     gpuProfilerPrintLine(problemSize, iter, threadBlockSize, numThreadBlocks);

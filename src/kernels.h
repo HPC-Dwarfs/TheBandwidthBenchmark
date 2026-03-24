@@ -11,6 +11,7 @@
 extern void allocateArrays(
     TBB_FLOAT **a, TBB_FLOAT **b, TBB_FLOAT **c, TBB_FLOAT **d, size_t N);
 extern void initArrays(TBB_FLOAT *a, TBB_FLOAT *b, TBB_FLOAT *c, TBB_FLOAT *d, size_t N);
+extern void reinitSweepBuffers(TBB_FLOAT **a, TBB_FLOAT **b, size_t bufferCount);
 extern double init(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N);
 extern double sum(TBB_FLOAT *a, size_t N);
 extern double update(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N);

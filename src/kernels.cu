@@ -63,10 +63,10 @@ __global__ void init_constants(TBB_FLOAT *__restrict__ a,
     return;
   }
 
-  a[tidx] = INIT_A;
-  b[tidx] = INIT_B;
-  c[tidx] = INIT_C;
-  d[tidx] = INIT_D;
+  if (a != nullptr) a[tidx] = INIT_A;
+  if (b != nullptr) b[tidx] = INIT_B;
+  if (c != nullptr) c[tidx] = INIT_C;
+  if (d != nullptr) d[tidx] = INIT_D;
 }
 
 __global__ void init_randoms(TBB_FLOAT *__restrict__ a,
@@ -88,10 +88,10 @@ __global__ void init_randoms(TBB_FLOAT *__restrict__ a,
   curand_init(seed, tidx, 0,
       &state); // seed, sequence number, offset, &state
 
-  a[tidx] = (TBB_FLOAT)curand_uniform(&state);
-  b[tidx] = (TBB_FLOAT)curand_uniform(&state);
-  c[tidx] = (TBB_FLOAT)curand_uniform(&state);
-  d[tidx] = (TBB_FLOAT)curand_uniform(&state);
+  if (a != nullptr) a[tidx] = (TBB_FLOAT)curand_uniform(&state);
+  if (b != nullptr) b[tidx] = (TBB_FLOAT)curand_uniform(&state);
+  if (c != nullptr) c[tidx] = (TBB_FLOAT)curand_uniform(&state);
+  if (d != nullptr) d[tidx] = (TBB_FLOAT)curand_uniform(&state);
 }
 
 __global__ void initCuda(TBB_FLOAT *__restrict__ b, TBB_FLOAT scalar, const size_t N)
@@ -662,6 +662,29 @@ void initArrays(TBB_FLOAT *__restrict__ a,
 
     unsigned long long seed = time(NULL); // unique seed
     init_randoms<<<(N / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(a, b, c, d, N, seed);
+  }
+
+  GPU_ERROR(cudaDeviceSynchronize());
+}
+
+void reinitSweepBuffers(TBB_FLOAT **a, TBB_FLOAT **b, size_t bufferCount)
+{
+  GPU_ERROR(cudaFree(*a));
+  GPU_ERROR(cudaFree(*b));
+
+  GPU_ERROR(cudaMalloc((void **)a, bufferCount * sizeof(TBB_FLOAT)));
+  GPU_ERROR(cudaMalloc((void **)b, bufferCount * sizeof(TBB_FLOAT)));
+
+  setBlockSize();
+
+  if (DataInitVariant == CONSTANT) {
+
+    init_constants<<<bufferCount / THREAD_BLOCK_SIZE + 1, THREAD_BLOCK_SIZE>>>(*a, *b, nullptr, nullptr, bufferCount);
+
+  } else if (DataInitVariant == RANDOM) {
+
+    unsigned long long seed = time(NULL); // unique seed
+    init_randoms<<<(bufferCount / THREAD_BLOCK_SIZE) + 1, THREAD_BLOCK_SIZE>>>(*a, *b, nullptr, nullptr, bufferCount, seed);
   }
 
   GPU_ERROR(cudaDeviceSynchronize());
