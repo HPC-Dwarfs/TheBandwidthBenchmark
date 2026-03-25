@@ -7,6 +7,7 @@
 extern "C" {
 #include "cli.h"
 #include "constants.h"
+#include "profiler.h"
 #include "timing.h"
 #include "util.h"
 
@@ -872,7 +873,7 @@ int getSharedMemSize(int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void
  *
  * Sweeps over increasing problem sizes with constant thread block size.
  */
-void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
+static void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
 {
   printf(HLINE);
   printf("Running GPU sweeps\n");
@@ -885,6 +886,32 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
     runGPUSweep(vec, N);
   } else if (GPUBenchmarkType == GPU_L1) {
     runGPUL1Sweep(vec, N);
+  }
+}
+
+void runBenchmarks(VectorsType vec, const size_t N)
+{
+  if (GPUBenchmarkType == GPU_L1 || GPUBenchmarkType == GPU_L2 ||
+      GPUBenchmarkType == GPU_SWEEP) {
+    runGPUMemoryHierarchySweeps(vec, N);
+  }
+
+  const double scalar = INIT_SCALAR;
+  TBB_FLOAT *a           = vec.a;
+  TBB_FLOAT *b           = vec.b;
+  TBB_FLOAT *c           = vec.c;
+  TBB_FLOAT *d           = vec.d;
+  printf("Doing %zu repetitions per kernel\n", Iterations);
+
+  for (int k = 0; k < Iterations; k++) {
+    PROFILE(INIT, init(b, scalar, N));
+    PROFILE(SUM, sum(a, N));
+    PROFILE(COPY, copy(c, a, N));
+    PROFILE(UPDATE, update(a, scalar, N));
+    PROFILE(TRIAD, triad(a, b, c, scalar, N));
+    PROFILE(DAXPY, daxpy(a, b, scalar, N));
+    PROFILE(STRIAD, striad(a, b, c, d, N));
+    PROFILE(SDAXPY, sdaxpy(a, b, c, N));
   }
 }
 }

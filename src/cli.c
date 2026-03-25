@@ -13,18 +13,16 @@
 #include "constants.h"
 #include "util.h"
 
-#if !defined(_NVCC) && !defined(_HIP)
-int BenchmarkType   = WS;
-#else
-int BenchmarkType   = GPU_WS;
-int GPUBenchmarkType = GPU_WS;
-#endif
 bool Sequential     = false;
 int DataInitVariant = CONSTANT;
 size_t N            = SIZE;
 size_t Iterations   = NTIMES;
 
-#if defined(_NVCC) || defined(_HIP)
+#ifndef _GPU
+int BenchmarkType   = WS;
+#else
+int BenchmarkType   = GPU_WS;
+int GPUBenchmarkType = GPU_WS;
 int CUDA_DEVICE             = 0;
 int THREAD_BLOCK_PER_SM     = 1024;
 int THREAD_BLOCK_SIZE       = 2;
@@ -43,37 +41,6 @@ void parseArguments(int argc, char **argv)
     case 'h': {
       printf(HELPTEXT);
       exit(EXIT_SUCCESS);
-      break;
-    }
-
-    case 'm': {
-#if !defined(_NVCC) && !defined(_HIP)
-      if (strcmp(optarg, "ws") == 0) {
-        BenchmarkType = WS;
-      } else if (strcmp(optarg, "tp") == 0) {
-        BenchmarkType = TP;
-        Sequential    = false;
-      } else if (strcmp(optarg, "seq") == 0) {
-        BenchmarkType = SQ;
-        Sequential    = true;
-      } else {
-        printf("Unknown bench type %s\n", optarg);
-        exit(EXIT_FAILURE);
-      }
-#else
-      if (strcmp(optarg, "ws") == 0) {
-        GPUBenchmarkType = GPU_WS;
-      } else if (strcmp(optarg, "l1") == 0) {
-        GPUBenchmarkType = GPU_L1;
-      } else if (strcmp(optarg, "l2") == 0) {
-        GPUBenchmarkType = GPU_L2;
-      } else if (strcmp(optarg, "sweep") == 0) {
-        GPUBenchmarkType = GPU_SWEEP;
-      } else {
-        printf("Unknown GPU bench type %s. Use: ws, l1, l2, sweep\n", optarg);
-        exit(EXIT_FAILURE);
-      }
-#endif
       break;
     }
 
@@ -112,7 +79,39 @@ void parseArguments(int argc, char **argv)
       break;
     }
 
-#if defined(_NVCC) || defined(_HIP)
+#ifndef _GPU
+    case 'm': {
+      if (strcmp(optarg, "ws") == 0) {
+        BenchmarkType = WS;
+      } else if (strcmp(optarg, "tp") == 0) {
+        BenchmarkType = TP;
+        Sequential    = false;
+      } else if (strcmp(optarg, "seq") == 0) {
+        BenchmarkType = SQ;
+        Sequential    = true;
+      } else {
+        printf("Unknown bench type %s\n", optarg);
+        exit(EXIT_FAILURE);
+      }
+      break;
+    }
+#else
+    case 'm': {
+      if (strcmp(optarg, "ws") == 0) {
+        GPUBenchmarkType = GPU_WS;
+      } else if (strcmp(optarg, "l1") == 0) {
+        GPUBenchmarkType = GPU_L1;
+      } else if (strcmp(optarg, "l2") == 0) {
+        GPUBenchmarkType = GPU_L2;
+      } else if (strcmp(optarg, "sweep") == 0) {
+        GPUBenchmarkType = GPU_SWEEP;
+      } else {
+        printf("Unknown GPU bench type %s. Use: ws, l1, l2, sweep\n", optarg);
+        exit(EXIT_FAILURE);
+      }
+      break;
+    }
+
     case 'd': {
       char *end;
       errno          = 0;

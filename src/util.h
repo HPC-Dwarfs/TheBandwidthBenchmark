@@ -5,6 +5,10 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#if defined(_NVCC) || defined(_HIP)
+#define _GPU
+#endif
+
 #define HLINE "------------------------------------------------------------------------\n"
 
 #define BANNER                                                                           \

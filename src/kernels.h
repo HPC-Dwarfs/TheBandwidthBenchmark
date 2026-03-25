@@ -23,7 +23,9 @@ extern double striad(
 extern double daxpy(TBB_FLOAT *a, const TBB_FLOAT *b, TBB_FLOAT scalar, size_t N);
 extern double sdaxpy(TBB_FLOAT *a, const TBB_FLOAT *b, const TBB_FLOAT *c, size_t N);
 
-#ifndef _NVCC
+extern void runBenchmarks(VectorsType vec, size_t N);
+
+#ifndef _GPU
 extern double initSeq(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
 extern double updateSeq(TBB_FLOAT *a, TBB_FLOAT scalar, size_t N, size_t iter);
 extern double sumSeq(TBB_FLOAT *a, size_t N, size_t iter);

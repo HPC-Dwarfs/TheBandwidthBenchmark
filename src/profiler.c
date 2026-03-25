@@ -214,7 +214,7 @@ void profilerPrint(const size_t N)
   LIKWID_MARKER_CLOSE;
 }
 
-#if defined(_NVCC) || defined(_HIP)
+#ifdef _GPU
 void gpuProfilerOpenFile(int region, const char *label)
 {
   char filename[MAXSTRLEN];

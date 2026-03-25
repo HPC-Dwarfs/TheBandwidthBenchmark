@@ -8,7 +8,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#if !defined(_NVCC) && !defined(_HIP)
+#include "util.h"
+
+#ifndef _GPU
 typedef enum { WS = 0, TP, SQ, NUMTYPES } ModeType;
 #else
 typedef enum { GPU_WS = 0, GPU_L1, GPU_L2, GPU_SWEEP, GPU_NUMTYPES } GPUModeType;
@@ -33,11 +35,8 @@ extern size_t N;
 extern size_t Iterations;
 extern int DataInitVariant;
 
-#if defined(_NVCC) || defined(_HIP)
+#ifdef _GPU
 extern int GPUBenchmarkType;
-#endif
-
-#if defined(_NVCC) || defined(_HIP)
 extern int CUDA_DEVICE;
 extern int THREAD_BLOCK_SIZE;
 extern int THREAD_BLOCK_SIZE_SET;
