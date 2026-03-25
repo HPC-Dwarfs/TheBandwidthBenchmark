@@ -182,7 +182,7 @@ static void runGPUSweep(VectorsType vec, const size_t N)
   allocateTimer();
 
   for (int kernel = 0; kernel < NUMREGIONS; kernel++) {
-    gpuProfilerOpenFileRegion(kernel);
+    gpuProfilerOpenFile(kernel, NULL);
     
     THREAD_BLOCK_SIZE_SET = 1;
     THREAD_BLOCK_PER_SM_SET= 1;
@@ -198,7 +198,7 @@ static void runGPUSweep(VectorsType vec, const size_t N)
 
         gpuKernelSwitch(vec, N, Iterations, kernel);
 
-        gpuProfilerPrintLineRegion(N, Iterations, tb_size, tb_per_sm, kernel);
+        gpuProfilerPrintLine(N, Iterations, tb_size, tb_per_sm, kernel);
       }
     }
     gpuProfilerCloseFile();
@@ -234,7 +234,7 @@ static void runGPUL1Sweep(VectorsType vec, const size_t N)
 
   allocateTimer();
 
-  gpuProfilerOpenFile("L1");
+  gpuProfilerOpenFile(-1, "L1");
 
 #define GENERATE_ARRAY_ELEMENT(SIZE) SIZE,
   const size_t sweepSizes[] = {
@@ -269,7 +269,7 @@ static void runGPUL1Sweep(VectorsType vec, const size_t N)
       vec.b -= k;
     }
 
-    gpuProfilerPrintLine(problemSize, iter, threadBlockSize, numThreadBlocks);
+    gpuProfilerPrintLine(problemSize, iter, threadBlockSize, numThreadBlocks, -1);
   }
 
   gpuProfilerCloseFile();

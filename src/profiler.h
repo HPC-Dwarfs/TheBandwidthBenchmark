@@ -47,10 +47,8 @@ extern void profilerCloseFile(void);
 extern void profilerPrintLine(size_t N, size_t iter, int kernel);
 
 #if defined(_NVCC) || defined(_HIP)
-extern void gpuProfilerOpenFile(const char *label);
-extern void gpuProfilerPrintLine(size_t N, int iter, int threadBlockSize, int numThreadBlocks);
-extern void gpuProfilerOpenFileRegion(int region);
-extern void gpuProfilerPrintLineRegion(size_t N, int iter, int threadBlockSize, int numThreadBlocks, int region);
+extern void gpuProfilerOpenFile(int region, const char *label);
+extern void gpuProfilerPrintLine(size_t N, int iter, int threadBlockSize, int numThreadBlocks, int region);
 extern void gpuProfilerCloseFile(void);
 #endif
 
