@@ -70,12 +70,6 @@ static void gpuKernelSwitch(
   }
 }
 
-void runGPUL2Sweep()
-{
-  printf("GPU L2 sweep mode is reserved.\n");
-  exit(EXIT_SUCCESS);
-}
-
 void runGPUSweep(VectorsType vec, const size_t N)
 {
   Iterations = GPU_INCACHE_REPS;

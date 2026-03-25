@@ -253,7 +253,12 @@ void gpuProfilerPrintLine(const size_t N, const int iter,
   if (region >= 0) {
     dataset = (double)Regions[region].words * sizeof(TBB_FLOAT) * (double)N;
     rate = dataset / mintime;
+  } else if (region == -2) {
+    /* L2 mode: N=bufferCount, iter=blockCount, numThreadBlocks=blockRun */
+    dataset = (double)N * sizeof(TBB_FLOAT);
+    rate = ((double)N / numThreadBlocks) * sizeof(TBB_FLOAT) * (double)iter / mintime;
   } else {
+    /* L1 mode */
     dataset = 2.0 * sizeof(TBB_FLOAT) * (double)N;
     rate = 2.0 * sizeof(TBB_FLOAT) * (double)N * (double)iter * (double)numThreadBlocks / mintime;
   }

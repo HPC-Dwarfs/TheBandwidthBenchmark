@@ -16,7 +16,7 @@ static void setBlockSize(void);
 
 extern void runGPUL1Sweep(VectorsType vec, size_t N);
 extern void runGPUSweep(VectorsType vec, size_t N);
-extern void runGPUL2Sweep(void);
+extern void runGPUL2Sweep(VectorsType vec, size_t N);
 }
 
 #define GPU_ERROR(ans)                                                                   \
@@ -880,7 +880,7 @@ void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
   printf(HLINE);
 
   if (GPUBenchmarkType == GPU_L2) {
-    // runGPUL2Sweep();
+    runGPUL2Sweep(vec, N);
   } else if (GPUBenchmarkType == GPU_SWEEP) {
     runGPUSweep(vec, N);
   } else if (GPUBenchmarkType == GPU_L1) {
