@@ -13,6 +13,10 @@ extern "C" {
 static int getSharedMemSize(
     int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void *func);
 static void setBlockSize(void);
+
+extern void runGPUL1Sweep(VectorsType vec, size_t N);
+extern void runGPUSweep(VectorsType vec, size_t N);
+extern void runGPUL2Sweep(void);
 }
 
 #define GPU_ERROR(ans)                                                                   \
@@ -861,5 +865,26 @@ int getSharedMemSize(int THREAD_BLOCK_SIZE, int thread_blocks_per_sm, const void
   // Re-assert final successful size limits before return
   cudaFuncSetAttribute(func, cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size);
   return shared_mem_size;
+}
+
+/**
+ * @brief Run GPU memory hierarchy sweeps
+ *
+ * Sweeps over increasing problem sizes with constant thread block size.
+ */
+void runGPUMemoryHierarchySweeps(VectorsType vec, const size_t N)
+{
+  printf(HLINE);
+  printf("Running GPU sweeps\n");
+  printf("Using %d repetitions per measurement.\n", GPU_INCACHE_REPS);
+  printf(HLINE);
+
+  if (GPUBenchmarkType == GPU_L2) {
+    // runGPUL2Sweep();
+  } else if (GPUBenchmarkType == GPU_SWEEP) {
+    runGPUSweep(vec, N);
+  } else if (GPUBenchmarkType == GPU_L1) {
+    runGPUL1Sweep(vec, N);
+  }
 }
 }
