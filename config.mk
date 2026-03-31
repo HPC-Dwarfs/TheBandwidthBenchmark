@@ -1,11 +1,11 @@
 # Supported: GCC, CLANG, ICX, NVCC, HIP
-TOOLCHAIN ?= NVCC
+TOOLCHAIN ?= HIP
 # Supported: true or false
 ENABLE_OPENMP ?= true
 # Supported: true or false
 ENABLE_LIKWID ?= false
 # Supported: SP or DP
-DATA_TYPE ?= SP
+DATA_TYPE ?= DP
 
 #Feature options
 # 4GB dataset for desktop systems

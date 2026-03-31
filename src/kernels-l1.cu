@@ -35,7 +35,7 @@ static inline void gpuAssert(cudaError_t code, const char *file, int line, bool 
 }
 
 /**
- * @brief Throughput-Optimized Micro-benchmark Kernel for GPU cache
+ * @brief Throughput-Optimized Micro-benchmark Kernel for GPU L1-cache
  *
  * @tparam N         The number of elements to process in the inner loop.
  * @tparam iters     Number of outer loop repetitions.
@@ -108,7 +108,7 @@ static double gpuSweepL1Kernel(TBB_FLOAT *a, TBB_FLOAT *b,
     FOR_EACH_SWEEP_SIZE(DISPATCH_CASE)
   default:
     fprintf(stderr,
-        "Error: no template instantiation for problem size %d.\n"
+        "Error: no template instantiation for problem size %zu.\n"
         "Size must match a sweep step (STARTSIZE=100, EXPANSION=1.2, >= %d).\n",
         problemSize, GPU_SWEEP_BLOCKSIZE);
     exit(EXIT_FAILURE);

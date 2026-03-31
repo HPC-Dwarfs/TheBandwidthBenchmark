@@ -10,6 +10,7 @@
 #define cudaError_t hipError_t
 #define cudaGetErrorString hipGetErrorString
 #define cudaSetDevice hipSetDevice
+#define cudaGetDevice hipGetDevice
 #define cudaFree hipFree
 #define cudaMalloc hipMalloc
 #define cudaDeviceSynchronize hipDeviceSynchronize
@@ -17,7 +18,9 @@
 #define cudaGetDeviceProperties hipGetDeviceProperties
 #define cudaOccupancyMaxActiveBlocksPerMultiprocessor                                    \
   hipOccupancyMaxActiveBlocksPerMultiprocessor
-
+#define cudaGetLastError hipGetLastError
+#define cudaFuncAttributeMaxDynamicSharedMemorySize hipFuncAttributeMaxDynamicSharedMemorySize
+#define cudaFuncSetAttribute hipFuncSetAttribute
 #define curandState hiprandState
 #define curand_init hiprand_init
 #define curand_uniform hiprand_uniform

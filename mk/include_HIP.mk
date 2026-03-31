@@ -20,10 +20,11 @@ HIP_ARCH  = --offload-arch=native
 HIPFLAGS  = $(HIP_ARCH)
 
 VERSION   = --version
-CPUFLAGS  = -O3 -pipe
+CPUFLAGS  = -O3 -pipe -Wno-unused-value -Wno-unused-command-line-argument
 CFLAGS    = -O3 $(HIPFLAGS) $(CPUFLAGS)
 LFLAGS    =
 DEFINES   += -D_GNU_SOURCE
 DEFINES   += -D__HIP_PLATFORM_AMD__ -D_HIP
-INCLUDES  = -I/opt/rocm-7.1.1/include/hiprand
+# Try finding HIPRAND directory using: "find / -type d -name "hiprand" 2>/dev/null"
+# INCLUDES  = -I/opt/rocm-7.2.0/include/hiprand
 LIBS      =
