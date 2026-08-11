@@ -12,9 +12,14 @@ VERSION   = --version
 NVCCFLAGS = -gencode arch=compute_80,code=sm_80
 #For A40 GPUs, Ampere GA102 arch target
 NVCCFLAGS += -gencode arch=compute_86,code=sm_86
-# For H100 GPUs, although compute_90a and sm_90a is recommended for Hopper Arch
+# For H100 GPUs 
 # https://docs.nvidia.com/cuda/hopper-compatibility-guide/index.html#building-applications-with-hopper-support
-NVCCFLAGS += -gencode arch=compute_90,code=sm_90 
+NVCCFLAGS += -gencode arch=compute_90,code=sm_90
+# For BXXX GPUs 
+NVCCFLAGS += -gencode arch=compute_100,code=sm_100
+# For B300 GPUs 
+NVCCFLAGS += -gencode arch=compute_103,code=sm_103
+
 NVCCFLAGS += -Xcompiler -rdynamic --generate-line-info -Wno-deprecated-gpu-targets
 CPUFLAGS  = -O3 -pipe 
 CFLAGS    = -O3 $(NVCCFLAGS) --compiler-options="$(CPUFLAGS)"

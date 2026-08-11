@@ -409,7 +409,7 @@ __global__ void striadCuda_vec2(TBB_FLOAT *__restrict__ a,
 {
   size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N) {
+  if (tidx >= N / 2) {
     return;
   }
 
@@ -434,7 +434,7 @@ __global__ void striadCuda_vec4(TBB_FLOAT *__restrict__ a,
 {
   size_t tidx = threadIdx.x + blockIdx.x * blockDim.x;
 
-  if (tidx >= N) {
+  if (tidx >= N / 4) {
     return;
   }
 

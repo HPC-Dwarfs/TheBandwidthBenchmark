@@ -1,5 +1,5 @@
 # Supported: GCC, CLANG, ICX, NVCC, HIP
-TOOLCHAIN ?= HIP
+TOOLCHAIN ?= NVCC
 # Supported: true or false
 ENABLE_OPENMP ?= true
 # Supported: true or false
@@ -9,10 +9,10 @@ DATA_TYPE ?= DP
 
 #Feature options
 # 4GB dataset for desktop systems
-OPTIONS  =  -DSIZE=2500000000ull
+OPTIONS  =  -DSIZE=4500000000ull
 # 40GB dataset for server systems
 # OPTIONS  =  -DSIZE=1250000000ull
-OPTIONS +=  -DNTIMES=6000
+OPTIONS +=  -DNTIMES=3100
 # Enable to enforce AVX512 streaming stores
 #OPTIONS +=  -DAVX512_INTRINSICS
 OPTIONS +=  -DARRAY_ALIGNMENT=64
