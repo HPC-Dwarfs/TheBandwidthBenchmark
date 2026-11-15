@@ -1,0 +1,81 @@
+name: CUDA on simulated H100
+
+# Optional, non-required check. The hosted runners have no GPU, so this builds
+# the NVCC toolchain and runs it on a simulated NVIDIA H100
+# (https://github.com/pantheongpu/pantheonsim). A simulator cannot reproduce
+# hardware-specific behavior or timing, so it complements real-GPU testing
+# and does not replace it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "mk/**"
+      - "Makefile"
+      - "config.mk"
+      - ".github/gpu-sim/**"
+      - ".github/workflows/gpu-sim.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cuda-sim:
+    name: CUDA 13.0, simulated H100
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up the simulated GPU and CUDA toolkit
+        uses: pantheongpu/setup-pantheonsim@656f502ef4782d94d34d8ddd368e333960609639 # v0.1.8
+        with:
+          gpu: nvidia/h100
+          cuda-toolkit: "13.0"
+
+      # The simulator runs PTX only, so NVCCFLAGS is overridden with
+      # compute_90 (the default list embeds SASS for sm_80/86/90 only), and
+      # it needs a shared CUDA runtime. SIZE is reduced from the default
+      # 4 GB data set to 32 MB.
+      - name: Build
+        run: |
+          make TOOLCHAIN=NVCC -j3 \
+            OPTIONS="-DSIZE=1048576ull -DNTIMES=3 -DARRAY_ALIGNMENT=64" \
+            NVCCFLAGS="-arch=compute_90 -Xcompiler -rdynamic -Wno-deprecated-gpu-targets" \
+            LFLAGS="-cudart shared -lcuda"
+
+      # The NVCC build only prints bandwidth numbers and does not check the
+      # results, so verify.cu runs each kernel on the device and compares
+      # the arrays with host-computed values.
+      - name: Build kernel check
+        run: |
+          nvcc -O1 -arch=compute_90 -cudart shared -D_GNU_SOURCE -D_NVCC -Isrc \
+            .github/gpu-sim/verify.cu build/NVCC/cli.o build/NVCC/kernels.o \
+            build/NVCC/timing.o -o verify-NVCC -lcuda
+
+      - name: Check kernel results on the device
+        run: |
+          vgpu run ./verify-NVCC H100 2>&1 | tee verify.log
+          test "${PIPESTATUS[0]}" -eq 0
+          grep -q -F "device: NVIDIA H100" verify.log
+          grep -q -F "all kernel checks passed" verify.log
+          if grep -q -F "FAIL" verify.log; then exit 1; fi
+          [ "$(grep -c '^ok ' verify.log)" -ge 13 ]
+
+      - name: Run the benchmark
+        run: |
+          vgpu run ./bwbench-NVCC 2>&1 | tee bench.log
+          test "${PIPESTATUS[0]}" -eq 0
+          for k in Init Sum Copy Update Triad Daxpy STriad SDaxpy; do
+            grep -q "^$k " bench.log || { echo "::error::no result line for $k"; exit 1; }
+          done
+          grep -q -F "Doing 3 repetitions per kernel" bench.log
