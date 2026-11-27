@@ -1,5 +1,6 @@
 bwbench-*
 /build
+/core
 .clangd
 dat
 plots
